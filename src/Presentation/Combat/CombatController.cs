@@ -5,6 +5,7 @@ using ChaosArcadeTower.Domain.Board;
 using ChaosArcadeTower.Domain.Combat;
 using ChaosArcadeTower.Domain.Pieces;
 using ChaosArcadeTower.Presentation.GameFlow;
+using CombatSide = ChaosArcadeTower.Domain.Combat.Side;
 
 namespace ChaosArcadeTower.Presentation.Combat
 {
@@ -245,9 +246,9 @@ namespace ChaosArcadeTower.Presentation.Combat
             }
         }
 
-        private PieceInstance? GetPlaybackPiece(Side side, int slot)
+        private PieceInstance? GetPlaybackPiece(CombatSide side, int slot)
         {
-            var board = side == Side.Player ? _pbPlayer : _pbEnemy;
+            var board = side == CombatSide.Player ? _pbPlayer : _pbEnemy;
             return board.GetSlot(slot);
         }
 
