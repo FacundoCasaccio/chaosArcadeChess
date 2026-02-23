@@ -1,0 +1,33 @@
+# Godot
+.godot/
+*.translation
+
+# .NET / C#
+bin/
+obj/
+*.user
+*.suo
+*.userprefs
+*.csproj.old
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Exports
+export/
+*.pck
+*.exe
+*.x86_64
+*.zip
+
+# Logs
+*.log

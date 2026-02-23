@@ -1,0 +1,58 @@
+# Chaos Arcade Tower - Cursor Rules
+
+## Project Overview
+Roguelike + Autobattler + Chess arcade game built with Godot 4.x + C# (.NET).
+Source of truth: docs/GDD.docx, docs/TDD.docx, Assets/Game/Data/Configs/Balance/balance_v0_1.yaml
+
+## Architecture
+- **Separation**: Domain/Simulation (pure C#, zero Godot deps) vs Presentation (Godot scenes/scripts)
+- **Data-driven**: Pieces, perks, rarities, drop tables live in JSON configs under Assets/Game/Data/
+- **Determinism**: ALL randomness through SeededRandomService. Same seed => same result. No System.Random direct usage.
+- **Composition over inheritance**: Perks/effects as composable components, not deep class hierarchies.
+- **State machines**: Explicit FSMs for game flow and combat phases.
+
+## Coding Standards (C#)
+- **Naming**: PascalCase for types/methods/properties, camelCase for locals/params, _camelCase for private fields, UPPER_SNAKE for constants
+- **Namespaces**: Match folder structure (ChaosArcadeTower.Domain.Pieces, etc.)
+- **No God classes**: Max ~200 lines per class. Split by system/responsibility.
+- **SOLID-ish**: Interfaces for services (ICombatResolver, ISaveService, etc.), single responsibility per class.
+- **Immutable where possible**: PieceDefinition, PerkDefinition are read-only data. Runtime state is PieceInstance, PerkInstance.
+- **No public fields**: Use properties. Exception: simple data structs for serialization.
+
+## Determinism Requirements
+- All combat logic uses IRandomService (seeded).
+- Piece action order: deterministic by (slotIndex, side). Process: collect ready pieces, sort, resolve in order.
+- Status effects, perk hooks, and timed events processed in fixed order.
+- Never use DateTime.Now or Environment.TickCount in simulation.
+
+## MVP Constraints
+- NO online multiplayer.
+- NO complex economy (gold/shop/leveling) beyond perks + bot generation.
+- NO scope creep: if a feature isn't in TDD milestones, it doesn't get built.
+- Prefer data-driven content. Tuning lives in JSON/YAML configs, not hardcoded.
+- TODO markers allowed ONLY if they don't block MVP completion.
+
+## File Organization
+```
+src/Core/         - Interfaces, utilities, RNG, event bus
+src/Domain/       - Pure models: Piece, Perk, Board, Run, Combat
+src/Simulation/   - Combat engine, effects, scoring, target selection
+src/AI/           - Bot run simulator, positioning heuristics
+src/Presentation/ - Godot scenes, UI controllers, game flow
+src/Infrastructure/ - Save/load, config loading, balance services
+Assets/Game/Data/ - JSON/YAML configs (balance, perks, pieces)
+```
+
+## Definition of Done (per milestone)
+- [ ] Game launches and runs without errors
+- [ ] All buttons/navigation work (no dead ends)
+- [ ] New features are testable in-game
+- [ ] Determinism: same seed produces same combat result
+- [ ] No monolithic classes (>200 lines = split)
+- [ ] Code compiles with zero warnings
+
+## Godot Conventions
+- Scene names: PascalCase.tscn
+- One controller script per scene (attached to root node)
+- Use signals for UI events, EventBus for cross-system communication
+- GetNode<T> for child references with [Export] or explicit paths

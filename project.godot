@@ -1,0 +1,27 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; but it can also be manually edited.
+
+config_version=5
+
+[application]
+
+config/name="Chaos Arcade Tower"
+config/version="0.1.0"
+run/main_scene="res://src/Presentation/Scenes/Main.tscn"
+config/features=PackedStringArray("4.3", "C#", "Forward Plus")
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[dotnet]
+
+project/assembly_name="ChaosArcadeTower"
+
+[rendering]
+
+renderer/rendering_method="forward_plus"

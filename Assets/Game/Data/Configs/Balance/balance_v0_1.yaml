@@ -1,0 +1,221 @@
+version: 0.1
+notes:
+  - "MVP: 5x1 board, 2 reserve, 30s combat, cooldown-based actions"
+  - "Deterministic: all randomness via SeededRng"
+  - "Scaling: difficulty increases via floorDifficulty; stats don't auto-scale unless via perks"
+
+globals:
+  combat_duration_seconds: 30
+  tick_seconds: 0.10
+  max_lives: 3
+
+  # Scoring per your design:
+  score:
+    empty_slot_attack_points: 1
+    allied_piece_alive_adds_value: true
+    enemy_piece_killed_adds_value: true
+
+  # Used both for bot simulation and for difficulty banding.
+  board_power_weights:
+    hp_weight: 1.0
+    atk_weight: 4.0
+    cooldown_weight: 6.0   # uses (1 / cooldown) * cooldown_weight
+    value_weight: 0.0      # value is scoring, not power (keep 0 to avoid circular incentives)
+    perk_power_multiplier: 1.0
+
+pieces:
+  # Base stats. Actions/patterns defined elsewhere; these are balance anchors.
+  pawn:
+    tier: 1
+    hp: 10
+    atk: 2
+    cooldown: 1.20
+    value: 1
+  knight:
+    tier: 2
+    hp: 14
+    atk: 3
+    cooldown: 1.40
+    value: 2
+  bishop:
+    tier: 2
+    hp: 12
+    atk: 3
+    cooldown: 1.10
+    value: 2
+  rook:
+    tier: 3
+    hp: 18
+    atk: 4
+    cooldown: 1.60
+    value: 3
+  queen:
+    tier: 4
+    hp: 16
+    atk: 5
+    cooldown: 1.50
+    value: 4
+  king:
+    tier: 4
+    hp: 22
+    atk: 4
+    cooldown: 2.00
+    value: 5
+
+difficulty:
+  # Floor difficulty scalar for win/loss simulation + optional runtime AI tuning.
+  # Keep it smooth early, more noticeable mid floors.
+  floor_scalar:
+    base: 1.00
+    per_floor: 0.045          # 4.5% per floor
+    cap: 2.75                 # don't let it explode
+  win_probability_noise:
+    # added to boardPower comparison in bot-run simulation (not in real combat)
+    # keep small to avoid nonsense boards
+    stddev: 0.06
+    clamp_abs: 0.15
+
+  # Optional: "expected boardPower" curve to tune bots when player is weak/strong.
+  # This is used to keep bot boards plausible even if simulation swings too much.
+  expected_power_curve:
+    floor_1: 45
+    floor_5: 65
+    floor_10: 90
+    floor_20: 130
+
+rewards:
+  # Reward flow (MVP):
+  # - Win: choose 1 of 3
+  # - Loss: choose 1 of 2 (lower rarity bias)
+  choices_on_win: 3
+  choices_on_loss: 2
+
+  reward_type_weights:
+    # If you haven't implemented piece-upgrades yet, set piece_upgrade to 0 and perk to 1.
+    perk: 0.80
+    piece_upgrade: 0.20
+
+  rarity_weights_by_floor_band:
+    # weights sum to 1.0 inside each band
+    # Unique starts late and rare. Keep it aspirational.
+    band_1_4:
+      common: 0.85
+      rare: 0.15
+      epic: 0.00
+      unique: 0.00
+    band_5_9:
+      common: 0.70
+      rare: 0.25
+      epic: 0.05
+      unique: 0.00
+    band_10_14:
+      common: 0.55
+      rare: 0.30
+      epic: 0.14
+      unique: 0.01
+    band_15_24:
+      common: 0.40
+      rare: 0.35
+      epic: 0.22
+      unique: 0.03
+    band_25_plus:
+      common: 0.30
+      rare: 0.35
+      epic: 0.28
+      unique: 0.07
+
+  loss_penalty_rarity_shift:
+    # On loss, shift weights toward lower rarities without changing bands.
+    # Implementation: move this fraction of epic->rare and rare->common, unique->epic.
+    shift_fraction: 0.35
+
+drops:
+  # Used for initial bot board and any "roll piece" reward.
+  piece_pool_by_floor_band:
+    band_1_4:
+      pawn: 0.62
+      knight: 0.18
+      bishop: 0.18
+      rook: 0.02
+      queen: 0.00
+      king: 0.00
+    band_5_9:
+      pawn: 0.45
+      knight: 0.22
+      bishop: 0.22
+      rook: 0.09
+      queen: 0.02
+      king: 0.00
+    band_10_14:
+      pawn: 0.32
+      knight: 0.22
+      bishop: 0.22
+      rook: 0.16
+      queen: 0.07
+      king: 0.01
+    band_15_24:
+      pawn: 0.24
+      knight: 0.20
+      bishop: 0.20
+      rook: 0.20
+      queen: 0.13
+      king: 0.03
+    band_25_plus:
+      pawn: 0.18
+      knight: 0.18
+      bishop: 0.18
+      rook: 0.22
+      queen: 0.18
+      king: 0.06
+
+bot_generation:
+  # Bot path simulation knobs
+  initial_board_size: 5
+  reserve_size: 2
+
+  # How many simulated floors to run when generating an opponent for floor N.
+  # You asked: simulate from 1..N-1. That's the default.
+  simulate_all_previous_floors: true
+
+  # If bot "dies" during simulation (loses 3 lives) we restart to ensure an opponent exists.
+  # Restart seed derivation suggestion: seed = hash(baseSeed, floor, restartCount)
+  max_restarts: 6
+
+  # Reward rules inside bot simulation:
+  # - On win: apply reward normally
+  # - On loss: still apply reward but with lower rarity bias (loss_penalty_rarity_shift)
+  apply_rewards_on_loss: true
+
+  # Bot win chance model against "abstract opponents" during its simulated run.
+  # This determines how strong the bot becomes by floor N.
+  abstract_opponent_power:
+    # opponentPower = expectedPower(floor) * opponent_floor_scalar_multiplier
+    opponent_floor_scalar_multiplier: 1.00
+
+  # After simulation, clamp bot to avoid absurd boards (MVP safety)
+  clamp_rules:
+    max_epic_perks: 4
+    max_unique_perks: 2
+    max_total_perks: 10
+
+perks:
+  # Perks are data-driven; this file provides rarity quotas and power scoring values.
+  # Each perk definition should expose:
+  # - rarity
+  # - power_score (heuristic used by bot simulation)
+  # - stacking rules
+  # - target scope
+  # You can start with a small curated set: 10 common, 8 rare, 6 epic, 4 unique.
+  initial_content_targets:
+    common: 10
+    rare: 8
+    epic: 6
+    unique: 4
+
+  # Heuristic power scores for perks (used only in bot-run simulation).
+  # Real combat must always be authoritative; this is just for "trayecto" plausibility.
+  recommended_power_score_ranges:
+    common: [3, 7]
+    rare: [8, 15]
+    epic: [16, 28]
+    unique: [29, 45]

@@ -1,0 +1,84 @@
+{
+  "version": "0.1",
+  "globals": {
+    "combatDurationSeconds": 30,
+    "tickSeconds": 0.10,
+    "maxLives": 3,
+    "score": {
+      "emptySlotAttackPoints": 1,
+      "alliedPieceAliveAddsValue": true,
+      "enemyPieceKilledAddsValue": true
+    },
+    "boardPowerWeights": {
+      "hpWeight": 1.0,
+      "atkWeight": 4.0,
+      "cooldownWeight": 6.0,
+      "valueWeight": 0.0,
+      "perkPowerMultiplier": 1.0
+    }
+  },
+  "pieces": {
+    "pawn":   { "tier": 1, "hp": 10, "atk": 2, "cooldown": 1.20, "value": 1 },
+    "knight": { "tier": 2, "hp": 14, "atk": 3, "cooldown": 1.40, "value": 2 },
+    "bishop": { "tier": 2, "hp": 12, "atk": 3, "cooldown": 1.10, "value": 2 },
+    "rook":   { "tier": 3, "hp": 18, "atk": 4, "cooldown": 1.60, "value": 3 },
+    "queen":  { "tier": 4, "hp": 16, "atk": 5, "cooldown": 1.50, "value": 4 },
+    "king":   { "tier": 4, "hp": 22, "atk": 4, "cooldown": 2.00, "value": 5 }
+  },
+  "difficulty": {
+    "floorScalar": {
+      "base": 1.00,
+      "perFloor": 0.045,
+      "cap": 2.75
+    },
+    "winProbabilityNoise": {
+      "stddev": 0.06,
+      "clampAbs": 0.15
+    },
+    "expectedPowerCurve": {
+      "floor_1": 45,
+      "floor_5": 65,
+      "floor_10": 90,
+      "floor_20": 130
+    }
+  },
+  "rewards": {
+    "choicesOnWin": 3,
+    "choicesOnLoss": 2,
+    "rewardTypeWeights": {
+      "perk": 0.80,
+      "piece_upgrade": 0.20
+    },
+    "rarityWeightsByFloorBand": {
+      "band_1_4":     { "common": 0.85, "rare": 0.15, "epic": 0.00, "unique": 0.00 },
+      "band_5_9":     { "common": 0.70, "rare": 0.25, "epic": 0.05, "unique": 0.00 },
+      "band_10_14":   { "common": 0.55, "rare": 0.30, "epic": 0.14, "unique": 0.01 },
+      "band_15_24":   { "common": 0.40, "rare": 0.35, "epic": 0.22, "unique": 0.03 },
+      "band_25_plus": { "common": 0.30, "rare": 0.35, "epic": 0.28, "unique": 0.07 }
+    },
+    "lossPenaltyRarityShift": {
+      "shiftFraction": 0.35
+    }
+  },
+  "drops": {
+    "piecePoolByFloorBand": {
+      "band_1_4":     { "pawn": 0.62, "knight": 0.18, "bishop": 0.18, "rook": 0.02, "queen": 0.00, "king": 0.00 },
+      "band_5_9":     { "pawn": 0.45, "knight": 0.22, "bishop": 0.22, "rook": 0.09, "queen": 0.02, "king": 0.00 },
+      "band_10_14":   { "pawn": 0.32, "knight": 0.22, "bishop": 0.22, "rook": 0.16, "queen": 0.07, "king": 0.01 },
+      "band_15_24":   { "pawn": 0.24, "knight": 0.20, "bishop": 0.20, "rook": 0.20, "queen": 0.13, "king": 0.03 },
+      "band_25_plus": { "pawn": 0.18, "knight": 0.18, "bishop": 0.18, "rook": 0.22, "queen": 0.18, "king": 0.06 }
+    }
+  },
+  "botGeneration": {
+    "initialBoardSize": 5,
+    "reserveSize": 2,
+    "simulateAllPreviousFloors": true,
+    "maxRestarts": 6,
+    "applyRewardsOnLoss": true,
+    "clampRules": {
+      "maxEpicPerks": 4,
+      "maxUniquePerks": 2,
+      "maxTotalPerks": 10
+    }
+  }
+}

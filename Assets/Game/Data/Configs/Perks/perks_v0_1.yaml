@@ -1,0 +1,410 @@
+version: 0.1
+
+# Perk catalog: data-driven.
+# Each perk:
+# - rarity: common/rare/epic/unique
+# - type: stat, slot, piece_type, global, enchant, one_shot
+# - target: player, piece, piece_type, slot
+# - stacking: none, additive, max_stacks
+# - params: free-form values consumed by perk logic
+# - power_score: used only by bot simulation heuristic (not real combat)
+
+perks:
+
+# -------------------------
+# COMMON (10) power_score ~ 3..7
+# -------------------------
+
+  - id: c_hp_boost
+    name: "Reinforced Armor"
+    rarity: common
+    type: stat
+    target: piece
+    stacking: additive
+    max_stacks: 10
+    params:
+      add_hp: 3
+    power_score: 5
+    ui:
+      desc: "+3 HP to a selected piece."
+
+  - id: c_atk_boost
+    name: "Sharpened Edge"
+    rarity: common
+    type: stat
+    target: piece
+    stacking: additive
+    max_stacks: 10
+    params:
+      add_atk: 1
+    power_score: 5
+    ui:
+      desc: "+1 ATK to a selected piece."
+
+  - id: c_cd_reduction
+    name: "Quick Hands"
+    rarity: common
+    type: stat
+    target: piece
+    stacking: additive
+    max_stacks: 6
+    params:
+      cooldown_mult: 0.92   # multiply cooldown by this
+    power_score: 6
+    ui:
+      desc: "Selected piece attacks faster (−8% cooldown)."
+
+  - id: c_pawn_hp
+    name: "Pawn Wall"
+    rarity: common
+    type: piece_type
+    target: piece_type
+    stacking: additive
+    max_stacks: 6
+    params:
+      piece_type: pawn
+      add_hp: 2
+    power_score: 4
+    ui:
+      desc: "All Pawns gain +2 HP."
+
+  - id: c_knight_atk
+    name: "Knight Training"
+    rarity: common
+    type: piece_type
+    target: piece_type
+    stacking: additive
+    max_stacks: 6
+    params:
+      piece_type: knight
+      add_atk: 1
+    power_score: 4
+    ui:
+      desc: "All Knights gain +1 ATK."
+
+  - id: c_bishop_cd
+    name: "Bishop Focus"
+    rarity: common
+    type: piece_type
+    target: piece_type
+    stacking: additive
+    max_stacks: 6
+    params:
+      piece_type: bishop
+      cooldown_mult: 0.94
+    power_score: 4
+    ui:
+      desc: "All Bishops attack faster (−6% cooldown)."
+
+  - id: c_slot_1_guard
+    name: "Frontline Buffer"
+    rarity: common
+    type: slot
+    target: slot
+    stacking: additive
+    max_stacks: 5
+    params:
+      slot_index: 0
+      add_hp: 4
+    power_score: 4
+    ui:
+      desc: "Piece in slot 1 gains +4 HP."
+
+  - id: c_slot_5_strike
+    name: "Backline Strike"
+    rarity: common
+    type: slot
+    target: slot
+    stacking: additive
+    max_stacks: 5
+    params:
+      slot_index: 4
+      add_atk: 1
+    power_score: 4
+    ui:
+      desc: "Piece in slot 5 gains +1 ATK."
+
+  - id: c_empty_hit_bonus
+    name: "Suppression Fire"
+    rarity: common
+    type: global
+    target: player
+    stacking: additive
+    max_stacks: 5
+    params:
+      empty_slot_bonus: 1   # additional points per empty slot hit
+    power_score: 3
+    ui:
+      desc: "Hitting empty slots grants +1 additional point."
+
+  - id: c_reserve_swap
+    name: "Pocket Swap"
+    rarity: common
+    type: global
+    target: player
+    stacking: none
+    params:
+      reserve_swaps_per_prep: 1
+    power_score: 3
+    ui:
+      desc: "Gain 1 extra reserve swap during positioning."
+
+# -------------------------
+# RARE (8) power_score ~ 8..15
+# -------------------------
+
+  - id: r_team_hp
+    name: "Team Conditioning"
+    rarity: rare
+    type: global
+    target: player
+    stacking: additive
+    max_stacks: 5
+    params:
+      add_hp_all: 2
+    power_score: 10
+    ui:
+      desc: "All pieces gain +2 HP."
+
+  - id: r_team_atk
+    name: "Battle Rhythm"
+    rarity: rare
+    type: global
+    target: player
+    stacking: additive
+    max_stacks: 5
+    params:
+      add_atk_all: 1
+    power_score: 11
+    ui:
+      desc: "All pieces gain +1 ATK."
+
+  - id: r_rook_fortify
+    name: "Fortified Rooks"
+    rarity: rare
+    type: piece_type
+    target: piece_type
+    stacking: additive
+    max_stacks: 4
+    params:
+      piece_type: rook
+      add_hp: 6
+    power_score: 10
+    ui:
+      desc: "All Rooks gain +6 HP."
+
+  - id: r_queen_execution
+    name: "Queen’s Decree"
+    rarity: rare
+    type: piece_type
+    target: piece_type
+    stacking: additive
+    max_stacks: 4
+    params:
+      piece_type: queen
+      add_atk: 2
+    power_score: 12
+    ui:
+      desc: "All Queens gain +2 ATK."
+
+  - id: r_first_strike
+    name: "First Strike Protocol"
+    rarity: rare
+    type: global
+    target: player
+    stacking: additive
+    max_stacks: 3
+    params:
+      start_cooldown_bonus_mult: 0.75  # first attack sooner
+    power_score: 9
+    ui:
+      desc: "Your pieces start combat closer to their first attack."
+
+  - id: r_enrage_on_kill
+    name: "Momentum"
+    rarity: rare
+    type: global
+    target: player
+    stacking: additive
+    max_stacks: 3
+    params:
+      on_kill_add_atk: 1
+      on_kill_duration_seconds: 6
+    power_score: 13
+    ui:
+      desc: "On kill: gain +1 ATK for 6s."
+
+  - id: r_thorns
+    name: "Thorns"
+    rarity: rare
+    type: global
+    target: player
+    stacking: additive
+    max_stacks: 4
+    params:
+      reflect_pct: 0.10
+    power_score: 9
+    ui:
+      desc: "Reflect 10% of incoming damage."
+
+  - id: r_reserve_plus_one
+    name: "Expanded Bench"
+    rarity: rare
+    type: global
+    target: player
+    stacking: none
+    params:
+      reserve_size_bonus: 1
+    power_score: 8
+    ui:
+      desc: "+1 reserve slot (total +1)."
+
+# -------------------------
+# EPIC (6) power_score ~ 16..28
+# -------------------------
+
+  - id: e_freeze_on_hit
+    name: "Frostbrand"
+    rarity: epic
+    type: enchant
+    target: player
+    stacking: additive
+    max_stacks: 3
+    params:
+      enchant: ice
+      chance_on_hit: 0.20
+      freeze_seconds: 1.0
+    power_score: 20
+    ui:
+      desc: "20% chance on hit to Freeze for 1s."
+
+  - id: e_burn_on_hit
+    name: "Flamebrand"
+    rarity: epic
+    type: enchant
+    target: player
+    stacking: additive
+    max_stacks: 3
+    params:
+      enchant: fire
+      chance_on_hit: 0.25
+      burn_dps: 1
+      burn_seconds: 5
+    power_score: 20
+    ui:
+      desc: "25% chance on hit to Burn (1 DPS for 5s)."
+
+  - id: e_chain_lightning
+    name: "Arc Discharge"
+    rarity: epic
+    type: enchant
+    target: player
+    stacking: additive
+    max_stacks: 2
+    params:
+      enchant: lightning
+      chance_on_hit: 0.15
+      chain_targets: 1
+      chain_damage_pct: 0.50
+    power_score: 22
+    ui:
+      desc: "15% chance on hit: chain to 1 extra target for 50% damage."
+
+  - id: e_stone_skin
+    name: "Stone Skin"
+    rarity: epic
+    type: global
+    target: player
+    stacking: additive
+    max_stacks: 3
+    params:
+      damage_taken_mult: 0.90
+    power_score: 18
+    ui:
+      desc: "Reduce damage taken by 10%."
+
+  - id: e_overclock
+    name: "Overclock"
+    rarity: epic
+    type: global
+    target: player
+    stacking: additive
+    max_stacks: 2
+    params:
+      cooldown_mult_all: 0.88
+    power_score: 24
+    ui:
+      desc: "All pieces attack faster (−12% cooldown)."
+
+  - id: e_giant_slayer
+    name: "Giant Slayer"
+    rarity: epic
+    type: global
+    target: player
+    stacking: additive
+    max_stacks: 3
+    params:
+      bonus_damage_vs_high_hp_pct: 0.12
+      threshold_hp: 18
+    power_score: 18
+    ui:
+      desc: "Deal +12% damage vs targets with HP ≥ 18."
+
+# -------------------------
+# UNIQUE (4) power_score ~ 29..45
+# -------------------------
+
+  - id: u_second_wind
+    name: "Second Wind"
+    rarity: unique
+    type: one_shot
+    target: player
+    stacking: none
+    params:
+      triggers_per_combat: 1
+      heal_all_pct: 0.25
+      trigger_at_seconds: 15
+    power_score: 35
+    ui:
+      desc: "Once per combat at 15s: heal all allies for 25% of max HP."
+
+  - id: u_royal_edict
+    name: "Royal Edict"
+    rarity: unique
+    type: global
+    target: player
+    stacking: none
+    params:
+      if_has_piece_type: king
+      add_atk_all: 2
+      add_hp_all: 3
+    power_score: 40
+    ui:
+      desc: "If you have a King: all allies gain +2 ATK and +3 HP."
+
+  - id: u_time_dilation
+    name: "Time Dilation"
+    rarity: unique
+    type: global
+    target: player
+    stacking: none
+    params:
+      at_seconds: 10
+      enemy_cooldown_mult: 1.30
+      duration_seconds: 6
+    power_score: 33
+    ui:
+      desc: "At 10s: slow enemy attacks (30% slower) for 6s."
+
+  - id: u_blackout
+    name: "Blackout Protocol"
+    rarity: unique
+    type: global
+    target: player
+    stacking: none
+    params:
+      on_enemy_death_chance: 0.35
+      enemy_stun_seconds: 0.8
+    power_score: 31
+    ui:
+      desc: "On enemy death: 35% chance to Stun the next enemy action for 0.8s."
