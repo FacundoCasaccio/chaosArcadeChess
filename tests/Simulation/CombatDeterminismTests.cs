@@ -27,6 +27,11 @@ namespace ChaosArcadeTower.Tests.Simulation
             SameSeedProducesSameResult();
             DeadActorNeverActsLaterInSameTick();
             InitialStaggerProducesSequentialFirstActions();
+            StatPerkModifiesEffectiveHp();
+            StoneSkinReducesDamage();
+            PerkDeterminism_SameSeedSameLog();
+            PieceTypePerkDoesNotNeedTargetSelection();
+            EnchantPerkNeedsTargetSelection();
             Console.WriteLine("[CombatDeterminismTests] All tests passed.");
         }
 
@@ -165,6 +170,145 @@ namespace ChaosArcadeTower.Tests.Simulation
             }
 
             Console.WriteLine("  [PASS] InitialStaggerProducesSequentialFirstActions");
+        }
+
+        /// <summary>
+        /// A stat perk (+3 HP) applied to a piece must increase its MaxHp
+        /// in the initial snapshot board stored in CombatResult.
+        /// </summary>
+        public static void StatPerkModifiesEffectiveHp()
+        {
+            var pBoard = new BoardState();
+            var eBoard = new BoardState();
+
+            var pawnDef = new PieceDefinition(PieceType.Pawn, 1, 10, 2, 1.20f, 1);
+            pBoard.SetSlot(0, new PieceInstance(pawnDef, "p_0"));
+            eBoard.SetSlot(0, new PieceInstance(pawnDef, "bot_0"));
+
+            var hpPerk = new PerkDefinition
+            {
+                Id = "c_hp_boost", Name = "HP+", Rarity = Rarity.Common,
+                Type = PerkType.Stat, Target = PerkTarget.Piece,
+                Stacking = StackingMode.Additive, MaxStacks = 10,
+                Params = new() { { "add_hp", 3 } }
+            };
+            var perkInst = new PerkInstance(hpPerk) { TargetPieceId = "p_0" };
+
+            var resolver = MakeResolver();
+            var result = resolver.Resolve(pBoard, eBoard,
+                new List<PerkInstance> { perkInst }, new(), seed: 42);
+
+            var initPiece = result.InitialPlayerBoard.GetSlot(0);
+            Assert(initPiece != null, "Initial board should have piece at slot 0");
+            Assert(initPiece!.MaxHp == 13,
+                $"Expected MaxHp=13 (10+3), got {initPiece.MaxHp}");
+            Assert(initPiece.CurrentHp == 13,
+                $"Expected CurrentHp=13, got {initPiece.CurrentHp}");
+
+            Console.WriteLine("  [PASS] StatPerkModifiesEffectiveHp");
+        }
+
+        /// <summary>
+        /// StoneSkin perk must reduce incoming damage, producing different
+        /// HP-after values compared to a no-perk run.
+        /// </summary>
+        public static void StoneSkinReducesDamage()
+        {
+            var pBoard = new BoardState();
+            var eBoard = new BoardState();
+
+            var pawnDef = new PieceDefinition(PieceType.Pawn, 1, 50, 5, 1.20f, 1);
+            pBoard.SetSlot(0, new PieceInstance(pawnDef, "p_0"));
+            eBoard.SetSlot(0, new PieceInstance(pawnDef, "bot_0"));
+
+            var ssPerks = new List<PerkInstance>();
+            var ssPerk = new PerkDefinition
+            {
+                Id = "e_stone_skin", Name = "StoneSkin", Rarity = Rarity.Epic,
+                Type = PerkType.Global, Target = PerkTarget.Player,
+                Params = new() { { "damage_taken_mult", 0.5 } }
+            };
+            ssPerks.Add(new PerkInstance(ssPerk));
+
+            var resolver = MakeResolver();
+            int seed = 42;
+            var noPerkResult = resolver.Resolve(pBoard, eBoard, new(), new(), seed);
+            var perkResult = resolver.Resolve(pBoard, eBoard, ssPerks, new(), seed);
+
+            var noPerkFirstDmg = noPerkResult.EventLog
+                .FirstOrDefault(e => e.Type == CombatEventType.Damage && e.TargetSide == Side.Player);
+            var perkFirstDmg = perkResult.EventLog
+                .FirstOrDefault(e => e.Type == CombatEventType.Damage && e.TargetSide == Side.Player);
+
+            Assert(noPerkFirstDmg.Amount > 0, "No-perk run should have damage");
+            Assert(perkFirstDmg.Amount > 0, "Perk run should have damage");
+            Assert(perkFirstDmg.Amount < noPerkFirstDmg.Amount,
+                $"StoneSkin should reduce damage: {perkFirstDmg.Amount} should be < {noPerkFirstDmg.Amount}");
+
+            Console.WriteLine("  [PASS] StoneSkinReducesDamage");
+        }
+
+        /// <summary>
+        /// Same seed with perks produces identical log ordering.
+        /// </summary>
+        public static void PerkDeterminism_SameSeedSameLog()
+        {
+            var (pBoard, eBoard) = MakeMirrorBoards();
+            var perk = new PerkDefinition
+            {
+                Id = "c_atk_boost", Name = "ATK+", Rarity = Rarity.Common,
+                Type = PerkType.Stat, Target = PerkTarget.Piece,
+                Stacking = StackingMode.Additive, MaxStacks = 10,
+                Params = new() { { "add_atk", 2 } }
+            };
+            var perks = new List<PerkInstance>
+            {
+                new(perk) { TargetPieceId = "p_0" }
+            };
+
+            var resolver = MakeResolver();
+            int seed = 77;
+            var r1 = resolver.Resolve(pBoard, eBoard, perks, new(), seed);
+            var r2 = resolver.Resolve(pBoard, eBoard, perks, new(), seed);
+
+            Assert(r1.EventLog.Count == r2.EventLog.Count,
+                $"Perk determinism: event count {r1.EventLog.Count} vs {r2.EventLog.Count}");
+            for (int i = 0; i < r1.EventLog.Count; i++)
+            {
+                var a = r1.EventLog[i];
+                var b = r2.EventLog[i];
+                Assert(a.Type == b.Type && a.Amount == b.Amount &&
+                       Math.Abs(a.Timestamp - b.Timestamp) < 0.001f,
+                    $"Perk determinism: event {i} differs");
+            }
+
+            Console.WriteLine("  [PASS] PerkDeterminism_SameSeedSameLog");
+        }
+
+        public static void PieceTypePerkDoesNotNeedTargetSelection()
+        {
+            var perk = new PerkDefinition
+            {
+                Id = "c_pawn_hp", Name = "Pawn Wall", Rarity = Rarity.Common,
+                Type = PerkType.PieceType, Target = PerkTarget.PieceType,
+                Params = new() { { "piece_type", "pawn" }, { "add_hp", 2 } }
+            };
+            Assert(!perk.NeedsTargetSelection,
+                "PieceType perk (board-wide) must NOT require target selection");
+            Console.WriteLine("  [PASS] PieceTypePerkDoesNotNeedTargetSelection");
+        }
+
+        public static void EnchantPerkNeedsTargetSelection()
+        {
+            var perk = new PerkDefinition
+            {
+                Id = "e_freeze_on_hit", Name = "Frostbrand", Rarity = Rarity.Epic,
+                Type = PerkType.Enchant, Target = PerkTarget.Player,
+                Params = new() { { "enchant", "ice" } }
+            };
+            Assert(perk.NeedsTargetSelection,
+                "Enchant perk must require target selection");
+            Console.WriteLine("  [PASS] EnchantPerkNeedsTargetSelection");
         }
 
         // -- helpers --

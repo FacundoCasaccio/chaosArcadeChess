@@ -40,12 +40,13 @@ namespace ChaosArcadeTower.Simulation.Combat
                     if (target == null || target.IsDead)
                     {
                         sink.Push(CombatEvent.EmptyHit(timestamp, actorSide, actorSlot, srcType, srcId,
-                            otherSide, targetSlot));
+                            otherSide, targetSlot, atk));
                         ctx.RecordEmptySlotHit(actorSide);
                         continue;
                     }
 
-                    int finalDmg = ComputeDamage(atk, actor, target, ctx);
+                    ctx.LastReflectedDamage = 0;
+                    int finalDmg = ComputeDamage(atk, actor, target, ctx, actorSide, otherSide);
                     int hpBefore = target.CurrentHp;
                     target.TakeDamage(finalDmg);
                     int hpAfter = target.CurrentHp;
@@ -54,6 +55,26 @@ namespace ChaosArcadeTower.Simulation.Combat
                         actorSide, actorSlot, srcType, srcId,
                         otherSide, targetSlot, target.Definition.Type.ToString(), target.Id,
                         finalDmg, hpBefore, hpAfter));
+
+                    if (finalDmg != atk)
+                    {
+                        sink.Push(new CombatEvent
+                        {
+                            Timestamp = timestamp, Type = CombatEventType.PerkTriggered,
+                            SourceSide = actorSide, SourceSlot = actorSlot,
+                            Description = $"Perk: {atk}->{finalDmg} dmg"
+                        });
+                    }
+
+                    if (ctx.LastReflectedDamage > 0)
+                    {
+                        sink.Push(new CombatEvent
+                        {
+                            Timestamp = timestamp, Type = CombatEventType.PerkTriggered,
+                            SourceSide = otherSide,
+                            Description = $"Thorns: reflected {ctx.LastReflectedDamage} to {srcType}"
+                        });
+                    }
 
                     ctx.InvokeDamageDealt(actorSide, actorSlot, actor, otherSide, targetSlot, target, finalDmg, timestamp, sink);
 
@@ -98,11 +119,12 @@ namespace ChaosArcadeTower.Simulation.Combat
             }
         }
 
-        private static int ComputeDamage(int baseAtk, PieceInstance source, PieceInstance target, CombatContext ctx)
+        private static int ComputeDamage(int baseAtk, PieceInstance source, PieceInstance target,
+            CombatContext ctx, Side attackerSide, Side defenderSide)
         {
             float dmg = baseAtk;
-            dmg = ctx.ModifyOutgoingDamage(source, target, dmg);
-            dmg = ctx.ModifyIncomingDamage(source, target, dmg);
+            dmg = ctx.ModifyOutgoingDamage(source, target, dmg, attackerSide);
+            dmg = ctx.ModifyIncomingDamage(source, target, dmg, defenderSide);
             return dmg < 0 ? 0 : (int)System.Math.Round(dmg);
         }
 

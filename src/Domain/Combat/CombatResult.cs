@@ -10,6 +10,8 @@ namespace ChaosArcadeTower.Domain.Combat
         public List<CombatEvent> EventLog { get; set; } = new();
         public BoardState FinalPlayerBoard { get; set; } = new();
         public BoardState FinalEnemyBoard { get; set; } = new();
+        public BoardState InitialPlayerBoard { get; set; } = new();
+        public BoardState InitialEnemyBoard { get; set; } = new();
         public bool PlayerWon => PlayerScore.Total > EnemyScore.Total;
         public bool IsDraw => PlayerScore.Total == EnemyScore.Total;
         public float DurationSeconds { get; set; }

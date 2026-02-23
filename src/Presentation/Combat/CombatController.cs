@@ -12,6 +12,7 @@ namespace ChaosArcadeTower.Presentation.Combat
     public partial class CombatController : Control
     {
         private const int MAX_LOG_LINES = 300;
+        private const float CD_UPDATE_INTERVAL = 0.1f;
 
         private GameStateMachine _gsm = null!;
         private Label _timerLabel = null!;
@@ -30,9 +31,18 @@ namespace ChaosArcadeTower.Presentation.Combat
         private float _combatDuration;
         private bool _combatFinished;
         private int _logLineCount;
+        private float _cdUpdateTimer;
 
         private BoardState _pbPlayer = new();
         private BoardState _pbEnemy = new();
+
+        private readonly float[] _cdStartPlayer = new float[BoardState.ACTIVE_SLOTS];
+        private readonly float[] _cdLenPlayer = new float[BoardState.ACTIVE_SLOTS];
+        private readonly float[] _cdStartEnemy = new float[BoardState.ACTIVE_SLOTS];
+        private readonly float[] _cdLenEnemy = new float[BoardState.ACTIVE_SLOTS];
+
+        private readonly ProgressBar?[] _cdBarsPlayer = new ProgressBar?[BoardState.ACTIVE_SLOTS];
+        private readonly ProgressBar?[] _cdBarsEnemy = new ProgressBar?[BoardState.ACTIVE_SLOTS];
 
         public override void _Ready()
         {
@@ -41,11 +51,16 @@ namespace ChaosArcadeTower.Presentation.Combat
             _events = _result?.EventLog ?? new();
             _combatDuration = _result?.DurationSeconds ?? 15f;
 
-            _pbPlayer = _gsm.CurrentRun?.Board.DeepClone() ?? new BoardState();
-            _pbEnemy = _gsm.CurrentBot?.Board.DeepClone() ?? new BoardState();
+            _pbPlayer = _result?.InitialPlayerBoard?.DeepClone() ?? new BoardState();
+            _pbEnemy = _result?.InitialEnemyBoard?.DeepClone() ?? new BoardState();
+
+            float tickSec = _gsm.GetBalance().Globals.TickSeconds;
+            InitCooldownTracking(_pbPlayer, _cdStartPlayer, _cdLenPlayer, tickSec);
+            InitCooldownTracking(_pbEnemy, _cdStartEnemy, _cdLenEnemy, tickSec);
 
             BuildUI();
             RenderBoards();
+            UpdateCooldownBars();
         }
 
         public override void _Process(double delta)
@@ -63,6 +78,7 @@ namespace ChaosArcadeTower.Presentation.Combat
                 var evt = _events[_eventIndex];
                 AppendCombatEvent(evt);
                 ApplyEventToPlayback(evt);
+                UpdateCooldownTracking(evt);
                 boardDirty = true;
                 _eventIndex++;
             }
@@ -70,11 +86,77 @@ namespace ChaosArcadeTower.Presentation.Combat
             if (boardDirty)
                 RenderBoards();
 
+            _cdUpdateTimer += (float)delta;
+            if (_cdUpdateTimer >= CD_UPDATE_INTERVAL)
+            {
+                _cdUpdateTimer -= CD_UPDATE_INTERVAL;
+                UpdateCooldownBars();
+            }
+
             if (_playbackTime >= _combatDuration)
             {
                 _combatFinished = true;
                 _continueBtn.Disabled = false;
                 _timerLabel.Text = "COMBAT OVER";
+            }
+        }
+
+        private static void InitCooldownTracking(BoardState board, float[] starts, float[] lengths, float tickSec)
+        {
+            for (int i = 0; i < BoardState.ACTIVE_SLOTS; i++)
+            {
+                starts[i] = 0f;
+                var piece = board.GetSlot(i);
+                lengths[i] = piece != null ? piece.EffectiveCooldown + i * tickSec : 1f;
+            }
+        }
+
+        private void UpdateCooldownTracking(CombatEvent evt)
+        {
+            bool isAction = evt.Type == CombatEventType.Damage
+                         || evt.Type == CombatEventType.EmptySlotHit
+                         || evt.Type == CombatEventType.Heal;
+            if (!isAction) return;
+
+            int slot = evt.SourceSlot;
+            if (slot < 0 || slot >= BoardState.ACTIVE_SLOTS) return;
+
+            var starts = evt.SourceSide == CombatSide.Player ? _cdStartPlayer : _cdStartEnemy;
+            var lengths = evt.SourceSide == CombatSide.Player ? _cdLenPlayer : _cdLenEnemy;
+
+            if (evt.Timestamp <= starts[slot]) return;
+
+            starts[slot] = evt.Timestamp;
+            var piece = GetPlaybackPiece(evt.SourceSide, slot);
+            if (piece != null)
+                lengths[slot] = piece.EffectiveCooldown;
+        }
+
+        private void UpdateCooldownBars()
+        {
+            UpdateCooldownBarsForSide(_cdBarsPlayer, _cdStartPlayer, _cdLenPlayer, _pbPlayer);
+            UpdateCooldownBarsForSide(_cdBarsEnemy, _cdStartEnemy, _cdLenEnemy, _pbEnemy);
+        }
+
+        private void UpdateCooldownBarsForSide(
+            ProgressBar?[] bars, float[] starts, float[] lengths, BoardState board)
+        {
+            for (int i = 0; i < BoardState.ACTIVE_SLOTS; i++)
+            {
+                var bar = bars[i];
+                if (bar == null || !IsInstanceValid(bar)) continue;
+
+                var piece = board.GetSlot(i);
+                if (piece == null || piece.IsDead)
+                {
+                    bar.Value = 0;
+                    continue;
+                }
+
+                float fill = lengths[i] > 0f
+                    ? (_playbackTime - starts[i]) / lengths[i]
+                    : 0f;
+                bar.Value = Mathf.Clamp(fill, 0f, 1f) * 100f;
             }
         }
 
@@ -154,18 +236,19 @@ namespace ChaosArcadeTower.Presentation.Combat
 
         private void RenderBoards()
         {
-            RenderBoard(_playerBoardContainer, _pbPlayer, "A");
-            RenderBoard(_enemyBoardContainer, _pbEnemy, "B");
+            RenderBoard(_playerBoardContainer, _pbPlayer, "A", _cdBarsPlayer);
+            RenderBoard(_enemyBoardContainer, _pbEnemy, "B", _cdBarsEnemy);
         }
 
-        private void RenderBoard(HBoxContainer container, BoardState board, string prefix)
+        private void RenderBoard(HBoxContainer container, BoardState board, string prefix, ProgressBar?[] cdBars)
         {
             foreach (var c in container.GetChildren()) c.QueueFree();
 
             for (int i = 0; i < BoardState.ACTIVE_SLOTS; i++)
             {
+                cdBars[i] = null;
                 var piece = board.GetSlot(i);
-                var panel = new PanelContainer { CustomMinimumSize = new Vector2(110, 110) };
+                var panel = new PanelContainer { CustomMinimumSize = new Vector2(110, 120) };
                 var vbox = new VBoxContainer();
 
                 var nameLabel = new Label
@@ -181,7 +264,7 @@ namespace ChaosArcadeTower.Presentation.Combat
                     var hpBar = new ProgressBar
                     {
                         Value = hpPct,
-                        CustomMinimumSize = new Vector2(0, 16),
+                        CustomMinimumSize = new Vector2(0, 14),
                         ShowPercentage = false
                     };
                     vbox.AddChild(hpBar);
@@ -191,20 +274,31 @@ namespace ChaosArcadeTower.Presentation.Combat
                         Text = $"HP:{piece.CurrentHp}/{piece.MaxHp} ATK:{piece.Atk}",
                         HorizontalAlignment = HorizontalAlignment.Center
                     };
+                    statsLabel.AddThemeFontSizeOverride("font_size", 11);
                     vbox.AddChild(statsLabel);
 
-                    float cdPct = piece.EffectiveCooldown > 0
-                        ? (1f - piece.CooldownTimer / piece.EffectiveCooldown) * 100f
-                        : 100f;
-                    if (cdPct < 0f) cdPct = 0f;
-                    if (cdPct > 100f) cdPct = 100f;
+                    var cdLabel = new Label
+                    {
+                        Text = "CD",
+                        HorizontalAlignment = HorizontalAlignment.Center
+                    };
+                    cdLabel.AddThemeFontSizeOverride("font_size", 10);
+                    cdLabel.AddThemeColorOverride("font_color", new Color(0.5f, 0.7f, 1f));
+                    vbox.AddChild(cdLabel);
+
                     var cdBar = new ProgressBar
                     {
-                        Value = cdPct,
                         CustomMinimumSize = new Vector2(0, 10),
-                        ShowPercentage = false
+                        ShowPercentage = false,
+                        MinValue = 0,
+                        MaxValue = 100
                     };
+                    var cdFill = new StyleBoxFlat { BgColor = new Color(0.2f, 0.55f, 0.9f) };
+                    var cdBg = new StyleBoxFlat { BgColor = new Color(0.15f, 0.15f, 0.25f) };
+                    cdBar.AddThemeStyleboxOverride("fill", cdFill);
+                    cdBar.AddThemeStyleboxOverride("background", cdBg);
                     vbox.AddChild(cdBar);
+                    cdBars[i] = cdBar;
                 }
                 else if (piece != null && piece.IsDead)
                 {

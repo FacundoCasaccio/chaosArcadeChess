@@ -19,6 +19,7 @@ namespace ChaosArcadeTower.Simulation.Combat
         public int EnemyKillValue { get; private set; }
         public int PlayerPerkBonus { get; set; }
         public int EnemyPerkBonus { get; set; }
+        public int LastReflectedDamage { get; set; }
 
         private readonly PerkEffectRegistry _perkRegistry;
 
@@ -50,10 +51,10 @@ namespace ChaosArcadeTower.Simulation.Combat
         public BoardState GetOpponentBoard(Side side) => side == Side.Player ? EnemyBoard : PlayerBoard;
         public List<PerkInstance> GetPerks(Side side) => side == Side.Player ? PlayerPerks : EnemyPerks;
 
-        public float ModifyOutgoingDamage(PieceInstance source, PieceInstance target, float baseDmg)
+        public float ModifyOutgoingDamage(PieceInstance source, PieceInstance target, float baseDmg, Side attackerSide)
         {
             float dmg = baseDmg;
-            foreach (var perk in PlayerPerks)
+            foreach (var perk in GetPerks(attackerSide))
             {
                 var effect = _perkRegistry.GetEffect(perk.Definition);
                 if (effect != null)
@@ -62,16 +63,10 @@ namespace ChaosArcadeTower.Simulation.Combat
             return dmg;
         }
 
-        public float ModifyIncomingDamage(PieceInstance source, PieceInstance target, float baseDmg)
+        public float ModifyIncomingDamage(PieceInstance source, PieceInstance target, float baseDmg, Side defenderSide)
         {
             float dmg = baseDmg;
-            foreach (var perk in PlayerPerks)
-            {
-                var effect = _perkRegistry.GetEffect(perk.Definition);
-                if (effect != null)
-                    dmg = effect.ModifyIncomingDamage(this, perk, source, target, dmg);
-            }
-            foreach (var perk in EnemyPerks)
+            foreach (var perk in GetPerks(defenderSide))
             {
                 var effect = _perkRegistry.GetEffect(perk.Definition);
                 if (effect != null)

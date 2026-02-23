@@ -55,7 +55,10 @@ namespace ChaosArcadeTower.Simulation.Effects
             float reflectPct = perk.Definition.GetFloatParam("reflect_pct") * perk.Stacks;
             int reflected = (int)(damage * reflectPct);
             if (reflected > 0)
+            {
                 source.TakeDamage(reflected);
+                ctx.LastReflectedDamage += reflected;
+            }
             return damage;
         }
     }

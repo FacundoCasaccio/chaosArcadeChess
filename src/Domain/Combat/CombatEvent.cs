@@ -107,7 +107,7 @@ namespace ChaosArcadeTower.Domain.Combat
 
         public static CombatEvent EmptyHit(float t, Side srcSide, int srcSlot,
             string? srcType, string? srcId,
-            Side tgtSide, int tgtSlot)
+            Side tgtSide, int tgtSlot, int atkAmount = 0)
         {
             return new CombatEvent
             {
@@ -115,7 +115,7 @@ namespace ChaosArcadeTower.Domain.Combat
                 SourceSide = srcSide, SourceSlot = srcSlot,
                 SourcePieceType = srcType, SourcePieceId = srcId,
                 TargetSide = tgtSide, TargetSlot = tgtSlot,
-                Amount = 1
+                Amount = atkAmount
             };
         }
 
@@ -134,7 +134,7 @@ namespace ChaosArcadeTower.Domain.Combat
                 CombatEventType.PieceKilled =>
                     $"{ts} KILL {tgt} by {src} | {Amount} lethal ({TargetHpBefore}->0){(Description != null ? $" [{Description}]" : "")}",
                 CombatEventType.EmptySlotHit =>
-                    $"{ts} MISS {src} -> {FormatSlot(TargetSide, TargetSlot)} [empty]",
+                    $"{ts} ATK  {src} -> {FormatSlot(TargetSide, TargetSlot)} [empty] | {Amount} dmg (no target)",
                 CombatEventType.BurnTick =>
                     $"{ts} BURN {tgt} | {Amount} dmg ({TargetHpBefore}->{TargetHpAfter})",
                 CombatEventType.StatusApplied =>

@@ -55,6 +55,8 @@ namespace ChaosArcadeTower.Simulation.Combat
             List<PerkInstance> playerPerks, List<PerkInstance> enemyPerks,
             int seed)
         {
+            _perkRegistry.ResetCombatState();
+
             var pBoard = playerBoard.DeepClone();
             var eBoard = enemyBoard.DeepClone();
             var pPerks = playerPerks.Select(p => p.DeepClone()).ToList();
@@ -65,6 +67,10 @@ namespace ChaosArcadeTower.Simulation.Combat
 
             ApplyPreCombatPerks(ctx, pPerks, Side.Player);
             ApplyPreCombatPerks(ctx, ePerks, Side.Enemy);
+
+            var initialPlayer = pBoard.DeepClone();
+            var initialEnemy = eBoard.DeepClone();
+
             InitializeCooldowns(pBoard);
             InitializeCooldowns(eBoard);
 
@@ -111,7 +117,7 @@ namespace ChaosArcadeTower.Simulation.Combat
                 ProcessTimedPerks(ctx, ePerks, Side.Enemy, elapsed, sink, rng);
             }
 
-            return BuildResult(ctx, pBoard, eBoard, sink.EventList, _duration);
+            return BuildResult(ctx, pBoard, eBoard, initialPlayer, initialEnemy, sink.EventList, _duration);
         }
 
         private void ApplyPreCombatPerks(CombatContext ctx, List<PerkInstance> perks, Side side)
@@ -233,7 +239,8 @@ namespace ChaosArcadeTower.Simulation.Combat
             }
         }
 
-        private CombatResult BuildResult(CombatContext ctx, BoardState pBoard, BoardState eBoard, List<CombatEvent> events, float duration)
+        private CombatResult BuildResult(CombatContext ctx, BoardState pBoard, BoardState eBoard,
+            BoardState initialPlayer, BoardState initialEnemy, List<CombatEvent> events, float duration)
         {
             var playerScore = new ScoreBreakdown
             {
@@ -258,6 +265,8 @@ namespace ChaosArcadeTower.Simulation.Combat
                 EventLog = events,
                 FinalPlayerBoard = pBoard,
                 FinalEnemyBoard = eBoard,
+                InitialPlayerBoard = initialPlayer,
+                InitialEnemyBoard = initialEnemy,
                 DurationSeconds = duration
             };
         }

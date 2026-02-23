@@ -200,7 +200,7 @@ namespace ChaosArcadeTower.Presentation.GameFlow
             TransitionTo(GameState.Reward);
         }
 
-        public void OnRewardChosen(PerkDefinition chosenPerk, string? targetPieceId)
+        public void OnRewardChosen(PerkDefinition chosenPerk, string? targetPieceId, int? targetSlotIndex = null)
         {
             if (CurrentRun == null) return;
 
@@ -208,12 +208,15 @@ namespace ChaosArcadeTower.Presentation.GameFlow
             if (existing != null && existing.CanStack)
             {
                 existing.Stacks++;
+                if (targetPieceId != null) existing.TargetPieceId = targetPieceId;
+                if (targetSlotIndex != null) existing.TargetSlotIndex = targetSlotIndex;
             }
             else
             {
                 var instance = new PerkInstance(chosenPerk)
                 {
-                    TargetPieceId = targetPieceId
+                    TargetPieceId = targetPieceId,
+                    TargetSlotIndex = targetSlotIndex
                 };
                 CurrentRun.Perks.Add(instance);
             }

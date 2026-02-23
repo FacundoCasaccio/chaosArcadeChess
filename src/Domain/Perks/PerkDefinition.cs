@@ -16,7 +16,7 @@ namespace ChaosArcadeTower.Domain.Perks
     {
         Piece,
         Slot,
-        PieceTypeGroup,
+        PieceType,
         Player
     }
 
@@ -82,5 +82,8 @@ namespace ChaosArcadeTower.Domain.Perks
                 return val?.ToString() ?? defaultValue;
             return defaultValue;
         }
+
+        public bool NeedsTargetSelection =>
+            Target == PerkTarget.Piece || Type == PerkType.Enchant;
     }
 }

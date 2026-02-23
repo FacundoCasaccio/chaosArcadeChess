@@ -154,6 +154,18 @@ namespace ChaosArcadeTower.Simulation.Effects
                     }
                 }
             }
+            else
+            {
+                for (int i = 0; i < BoardState.ACTIVE_SLOTS; i++)
+                {
+                    var piece = board.GetSlot(i);
+                    if (piece != null && !piece.IsDead && piece.Enchant == null)
+                    {
+                        piece.Enchant = enchant;
+                        break;
+                    }
+                }
+            }
         }
     }
 }

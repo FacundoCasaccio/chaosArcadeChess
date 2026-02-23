@@ -11,14 +11,14 @@ namespace ChaosArcadeTower.Simulation.Effects
         private readonly SlotPerkEffect _slotEffect = new();
         private readonly PieceTypePerkEffect _pieceTypeEffect = new();
         private readonly EnchantPerkEffect _enchantEffect = new();
-        private readonly OneShotPerkEffect _oneShotEffect = new();
+        private OneShotPerkEffect _oneShotEffect = new();
         private readonly ThornsEffect _thornsEffect = new();
         private readonly StoneSkinEffect _stoneSkinEffect = new();
         private readonly GiantSlayerEffect _giantSlayerEffect = new();
         private readonly MomentumEffect _momentumEffect = new();
         private readonly FirstStrikeEffect _firstStrikeEffect = new();
-        private readonly TimeDilationEffect _timeDilationEffect = new();
-        private readonly BlackoutEffect _blackoutEffect = new();
+        private TimeDilationEffect _timeDilationEffect = new();
+        private BlackoutEffect _blackoutEffect = new();
 
         public PerkEffectRegistry()
         {
@@ -27,6 +27,15 @@ namespace ChaosArcadeTower.Simulation.Effects
             _effects["e_giant_slayer"] = _giantSlayerEffect;
             _effects["r_enrage_on_kill"] = _momentumEffect;
             _effects["r_first_strike"] = _firstStrikeEffect;
+            _effects["u_time_dilation"] = _timeDilationEffect;
+            _effects["u_blackout"] = _blackoutEffect;
+        }
+
+        public void ResetCombatState()
+        {
+            _oneShotEffect = new OneShotPerkEffect();
+            _timeDilationEffect = new TimeDilationEffect();
+            _blackoutEffect = new BlackoutEffect();
             _effects["u_time_dilation"] = _timeDilationEffect;
             _effects["u_blackout"] = _blackoutEffect;
         }

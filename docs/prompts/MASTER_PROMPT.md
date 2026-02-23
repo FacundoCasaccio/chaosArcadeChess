@@ -7,8 +7,8 @@
 ---
 
 ## Operating Mode
+- If multiple issues are in "In Progress", STOP and ask the user to leave only one.
 - Work on **exactly one GitHub issue at a time**: the one currently in **Status: In Progress** on the Project board.
-- If multiple issues are in "In Progress", **STOP** and ask the user to leave only one.
 - Assume you **cannot** move GitHub Project items automatically.
 - Use status labels to communicate state:
   - `status:in-progress` when you start the issue (ensure it is present)
@@ -18,6 +18,19 @@
 ---
 
 ## Required Docs (Source of Truth)
+
+### Doc Reading Policy (Token Saver)
+- Do NOT re-read or re-summarize all docs on every ticket.
+- Read docs only:
+  1) at the start of a new session, OR
+  2) when the current ticket touches a specific area covered by a doc section, OR
+  3) when a conflict/ambiguity appears.
+- When reading docs, read only the relevant section(s) and quote the section titles/paths referenced.
+- Otherwise, assume docs are unchanged and proceed using prior established architecture + the current issue text.
+
+### Output Brevity
+- Keep responses short: Plan + changes + files + how-to-test + risks.
+- Do not restate the full project context unless asked.
 
 Before coding, read and follow these docs in `/docs`:
 
@@ -98,14 +111,10 @@ Project board: https://github.com/users/FacundoCasaccio/projects/1
 </non_negotiables>
 
 <current_known_issues_context>
-The game is playable but needs polish/fixes:
-A) Combat resolution feels "everything happens at once" (mass instant deaths).
-B) Combat log fills but is not visible/readable.
-C) Hover/inspect piece details panel not updating.
-D) Targeted rewards auto-apply (needs target selection step).
-E) Cooldown overlay on pieces missing.
-F) Drag & drop reordering desired (keep click-swap fallback).
-G) UI polish (fonts/icons/layout) later.
+Current board status:
+- DONE: A, B, E
+- READY / NEXT: H (perks not applying), C (hover), D (reward targeting), J (DIRECT_DAMAGE wording), F, G
+Note: Follow the project board; this list is only a reminder.
 </current_known_issues_context>
 
 <priority_plan>
@@ -161,4 +170,4 @@ Always respond with:
 5) Review Packet (acceptance checklist + risks/notes)
 </output_format>
 
-Start by: reading docs, then implementing the single issue currently in "In Progress". Do not jump ahead.
+Start by: confirming the single issue in In Progress. Only open docs if needed by this ticket per Doc Reading Policy.
