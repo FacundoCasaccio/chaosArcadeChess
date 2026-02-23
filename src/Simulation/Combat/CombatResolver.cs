@@ -60,7 +60,7 @@ namespace ChaosArcadeTower.Simulation.Combat
             var pPerks = playerPerks.Select(p => p.DeepClone()).ToList();
             var ePerks = enemyPerks.Select(p => p.DeepClone()).ToList();
             var rng = new SeededRandomService(seed);
-            var events = new List<CombatEvent>();
+            var sink = new ListCombatEventSink();
             var ctx = new CombatContext(pBoard, eBoard, pPerks, ePerks, _perkRegistry);
 
             ApplyPreCombatPerks(ctx, pPerks, Side.Player);
@@ -74,17 +74,13 @@ namespace ChaosArcadeTower.Simulation.Combat
             {
                 float elapsed = tick * _tickSeconds;
 
-                // 1. Tick status effects (burn damage, expiry)
-                TickStatusEffects(pBoard, eBoard, _tickSeconds, elapsed, events);
+                TickStatusEffects(pBoard, eBoard, _tickSeconds, elapsed, sink, ctx);
 
-                // 2. Advance cooldowns for all alive pieces
                 AdvanceCooldowns(pBoard, _tickSeconds);
                 AdvanceCooldowns(eBoard, _tickSeconds);
 
-                // 3. Collect alive pieces whose cooldown fired
                 var readyActors = CollectReadyActors(pBoard, eBoard);
 
-                // 4. Sort: slot index ASC, then piece.Id ASC (stable + deterministic)
                 readyActors.Sort((a, b) =>
                 {
                     int cmp = a.slot.CompareTo(b.slot);
@@ -92,7 +88,6 @@ namespace ChaosArcadeTower.Simulation.Combat
                     return string.Compare(a.piece.Id, b.piece.Id, StringComparison.Ordinal);
                 });
 
-                // 5. Resolve one-by-one; re-check alive before each action
                 foreach (var (piece, slot, side) in readyActors)
                 {
                     if (piece.IsDead) continue;
@@ -108,16 +103,15 @@ namespace ChaosArcadeTower.Simulation.Combat
 
                     var allyBoard = side == Side.Player ? pBoard : eBoard;
                     var enemBoard = side == Side.Player ? eBoard : pBoard;
-                    ActionResolver.Execute(piece, slot, side, allyBoard, enemBoard, rng, elapsed, events, ctx);
+                    ActionResolver.Execute(piece, slot, side, allyBoard, enemBoard, rng, elapsed, sink, ctx);
                     piece.CooldownTimer = piece.EffectiveCooldown;
                 }
 
-                // 6. Timed perk effects
-                ProcessTimedPerks(ctx, pPerks, Side.Player, elapsed, events, rng);
-                ProcessTimedPerks(ctx, ePerks, Side.Enemy, elapsed, events, rng);
+                ProcessTimedPerks(ctx, pPerks, Side.Player, elapsed, sink, rng);
+                ProcessTimedPerks(ctx, ePerks, Side.Enemy, elapsed, sink, rng);
             }
 
-            return BuildResult(ctx, pBoard, eBoard, events, _duration);
+            return BuildResult(ctx, pBoard, eBoard, sink.EventList, _duration);
         }
 
         private void ApplyPreCombatPerks(CombatContext ctx, List<PerkInstance> perks, Side side)
@@ -173,13 +167,15 @@ namespace ChaosArcadeTower.Simulation.Combat
             return ready;
         }
 
-        private void TickStatusEffects(BoardState player, BoardState enemy, float dt, float elapsed, List<CombatEvent> events)
+        private void TickStatusEffects(BoardState player, BoardState enemy, float dt, float elapsed,
+            ICombatEventSink sink, CombatContext ctx)
         {
-            TickBoardStatuses(player, Side.Player, dt, elapsed, events);
-            TickBoardStatuses(enemy, Side.Enemy, dt, elapsed, events);
+            TickBoardStatuses(player, Side.Player, Side.Enemy, dt, elapsed, sink, ctx);
+            TickBoardStatuses(enemy, Side.Enemy, Side.Player, dt, elapsed, sink, ctx);
         }
 
-        private void TickBoardStatuses(BoardState board, Side side, float dt, float elapsed, List<CombatEvent> events)
+        private void TickBoardStatuses(BoardState board, Side side, Side oppSide, float dt, float elapsed,
+            ICombatEventSink sink, CombatContext ctx)
         {
             for (int i = 0; i < BoardState.ACTIVE_SLOTS; i++)
             {
@@ -196,12 +192,27 @@ namespace ChaosArcadeTower.Simulation.Combat
                         int burnDmg = (int)(status.FloatValue * dt);
                         if (burnDmg > 0)
                         {
+                            int hpBefore = piece.CurrentHp;
                             piece.TakeDamage(burnDmg);
-                            events.Add(new CombatEvent
+                            int hpAfter = piece.CurrentHp;
+
+                            sink.Push(new CombatEvent
                             {
                                 Timestamp = elapsed, Type = CombatEventType.BurnTick,
-                                TargetSide = side, TargetSlot = i, Amount = burnDmg
+                                TargetSide = side, TargetSlot = i, Amount = burnDmg,
+                                TargetPieceType = piece.Definition.Type.ToString(),
+                                TargetPieceId = piece.Id,
+                                TargetHpBefore = hpBefore, TargetHpAfter = hpAfter
                             });
+
+                            if (piece.IsDead)
+                            {
+                                sink.Push(CombatEvent.Kill(elapsed,
+                                    side, -1, null, null,
+                                    side, i, piece.Definition.Type.ToString(), piece.Id,
+                                    burnDmg, hpBefore, "burn"));
+                                ctx.RecordKill(oppSide, piece.Value);
+                            }
                         }
                     }
 
@@ -211,12 +222,14 @@ namespace ChaosArcadeTower.Simulation.Combat
             }
         }
 
-        private void ProcessTimedPerks(CombatContext ctx, List<PerkInstance> perks, Side side, float elapsed, List<CombatEvent> events, IRandomService rng)
+        private void ProcessTimedPerks(CombatContext ctx, List<PerkInstance> perks, Side side, float elapsed,
+            ICombatEventSink sink, IRandomService rng)
         {
+            var eventList = (sink as ListCombatEventSink)?.EventList ?? new List<CombatEvent>();
             foreach (var perk in perks)
             {
                 var effect = _perkRegistry.GetEffect(perk.Definition);
-                effect?.OnTick(ctx, perk, ctx.GetBoard(side), side, elapsed, events, rng);
+                effect?.OnTick(ctx, perk, ctx.GetBoard(side), side, elapsed, eventList, rng);
             }
         }
 

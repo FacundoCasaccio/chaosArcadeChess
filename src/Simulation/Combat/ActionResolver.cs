@@ -18,11 +18,13 @@ namespace ChaosArcadeTower.Simulation.Combat
             PieceInstance actor, int actorSlot, Side actorSide,
             BoardState allyBoard, BoardState enemyBoard,
             IRandomService rng, float timestamp,
-            List<CombatEvent> events, CombatContext ctx)
+            ICombatEventSink sink, CombatContext ctx)
         {
             var actionDef = PieceActionRegistry.Get(actor.Definition.Type);
             var otherSide = actorSide == Side.Player ? Side.Enemy : Side.Player;
             int atk = actor.EffectiveAtk();
+            string srcType = actor.Definition.Type.ToString();
+            string srcId = actor.Id;
 
             foreach (var atkGroup in actionDef.Attacks)
             {
@@ -37,24 +39,34 @@ namespace ChaosArcadeTower.Simulation.Combat
                     var target = enemyBoard.GetSlot(targetSlot);
                     if (target == null || target.IsDead)
                     {
-                        events.Add(CombatEvent.EmptyHit(timestamp, actorSide, actorSlot, otherSide, targetSlot));
+                        sink.Push(CombatEvent.EmptyHit(timestamp, actorSide, actorSlot, srcType, srcId,
+                            otherSide, targetSlot));
                         ctx.RecordEmptySlotHit(actorSide);
                         continue;
                     }
 
                     int finalDmg = ComputeDamage(atk, actor, target, ctx);
+                    int hpBefore = target.CurrentHp;
                     target.TakeDamage(finalDmg);
-                    events.Add(CombatEvent.Damage(timestamp, actorSide, actorSlot, otherSide, targetSlot, finalDmg));
+                    int hpAfter = target.CurrentHp;
 
-                    ctx.InvokeDamageDealt(actorSide, actorSlot, actor, otherSide, targetSlot, target, finalDmg, timestamp, events);
+                    sink.Push(CombatEvent.Damage(timestamp,
+                        actorSide, actorSlot, srcType, srcId,
+                        otherSide, targetSlot, target.Definition.Type.ToString(), target.Id,
+                        finalDmg, hpBefore, hpAfter));
 
-                    ApplyEnchantOnHit(actor, target, otherSide, targetSlot, actorSide, actorSlot, timestamp, rng, events, ctx);
+                    ctx.InvokeDamageDealt(actorSide, actorSlot, actor, otherSide, targetSlot, target, finalDmg, timestamp, sink);
+
+                    ApplyEnchantOnHit(actor, target, otherSide, targetSlot, actorSide, actorSlot, timestamp, rng, sink, ctx);
 
                     if (target.IsDead)
                     {
-                        events.Add(CombatEvent.Kill(timestamp, actorSide, actorSlot, otherSide, targetSlot));
+                        sink.Push(CombatEvent.Kill(timestamp,
+                            actorSide, actorSlot, srcType, srcId,
+                            otherSide, targetSlot, target.Definition.Type.ToString(), target.Id,
+                            finalDmg, hpBefore, "attack"));
                         ctx.RecordKill(actorSide, target.Value);
-                        ctx.InvokePieceKilled(actorSide, actorSlot, actor, otherSide, targetSlot, target, timestamp, events);
+                        ctx.InvokePieceKilled(actorSide, actorSlot, actor, otherSide, targetSlot, target, timestamp, sink);
                     }
                 }
             }
@@ -68,8 +80,13 @@ namespace ChaosArcadeTower.Simulation.Combat
                 {
                     var ally = allyBoard.GetSlot(slot);
                     if (ally == null || ally.IsDead) continue;
+                    int hpBefore = ally.CurrentHp;
                     ally.Heal(healGroup.Amount);
-                    events.Add(CombatEvent.Heal(timestamp, actorSide, actorSlot, actorSide, slot, healGroup.Amount));
+                    int hpAfter = ally.CurrentHp;
+                    sink.Push(CombatEvent.HealRich(timestamp,
+                        actorSide, actorSlot, srcType, srcId,
+                        actorSide, slot, ally.Definition.Type.ToString(), ally.Id,
+                        healGroup.Amount, hpBefore, hpAfter));
                 }
             }
 
@@ -77,7 +94,7 @@ namespace ChaosArcadeTower.Simulation.Combat
 
             foreach (var buffGroup in actionDef.Buffs)
             {
-                ApplyBuff(buffGroup, actor, actorSlot, actorSide, allyBoard, timestamp, events);
+                ApplyBuff(buffGroup, actor, actorSlot, actorSide, allyBoard, timestamp, sink);
             }
         }
 
@@ -162,7 +179,7 @@ namespace ChaosArcadeTower.Simulation.Combat
             return targets;
         }
 
-        private static void ApplyBuff(BuffGroup group, PieceInstance actor, int actorSlot, Side side, BoardState board, float timestamp, List<CombatEvent> events)
+        private static void ApplyBuff(BuffGroup group, PieceInstance actor, int actorSlot, Side side, BoardState board, float timestamp, ICombatEventSink sink)
         {
             float dur = actor.EffectiveCooldown * group.DurationMultiplier;
             for (int i = 0; i < BoardState.ACTIVE_SLOTS; i++)
@@ -185,7 +202,7 @@ namespace ChaosArcadeTower.Simulation.Combat
             PieceInstance source, PieceInstance target,
             Side targetSide, int targetSlot, Side sourceSide, int sourceSlot,
             float timestamp, IRandomService rng,
-            List<CombatEvent> events, CombatContext ctx)
+            ICombatEventSink sink, CombatContext ctx)
         {
             if (source.Enchant == null) return;
 
@@ -197,7 +214,7 @@ namespace ChaosArcadeTower.Simulation.Combat
                     if (rng.NextFloat() < freezeChance)
                     {
                         target.StatusEffects.Add(new StatusEffect { Type = StatusType.Freeze, Duration = freezeDur });
-                        events.Add(new CombatEvent
+                        sink.Push(new CombatEvent
                         {
                             Timestamp = timestamp, Type = CombatEventType.StatusApplied,
                             SourceSide = sourceSide, SourceSlot = sourceSlot,
@@ -217,7 +234,7 @@ namespace ChaosArcadeTower.Simulation.Combat
                         {
                             Type = StatusType.Burn, FloatValue = burnDps, Duration = burnDur
                         });
-                        events.Add(new CombatEvent
+                        sink.Push(new CombatEvent
                         {
                             Timestamp = timestamp, Type = CombatEventType.StatusApplied,
                             SourceSide = sourceSide, SourceSlot = sourceSlot,

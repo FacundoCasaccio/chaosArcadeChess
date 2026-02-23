@@ -1,7 +1,7 @@
 {
   "version": "0.1",
   "globals": {
-    "combatDurationSeconds": 30,
+    "combatDurationSeconds": 15,
     "tickSeconds": 0.10,
     "maxLives": 3,
     "score": {
@@ -18,9 +18,9 @@
     }
   },
   "pieces": {
-    "pawn":   { "tier": 1, "hp": 10, "atk": 2, "cooldown": 1.20, "value": 1 },
-    "knight": { "tier": 2, "hp": 14, "atk": 3, "cooldown": 1.40, "value": 2 },
-    "bishop": { "tier": 2, "hp": 12, "atk": 3, "cooldown": 1.10, "value": 2 },
+    "pawn":   { "tier": 1, "hp": 14, "atk": 2, "cooldown": 1.20, "value": 1 },
+    "knight": { "tier": 2, "hp": 18, "atk": 3, "cooldown": 1.40, "value": 2 },
+    "bishop": { "tier": 2, "hp": 16, "atk": 3, "cooldown": 1.10, "value": 2 },
     "rook":   { "tier": 3, "hp": 18, "atk": 4, "cooldown": 1.60, "value": 3 },
     "queen":  { "tier": 4, "hp": 16, "atk": 5, "cooldown": 1.50, "value": 4 },
     "king":   { "tier": 4, "hp": 22, "atk": 4, "cooldown": 2.00, "value": 5 }

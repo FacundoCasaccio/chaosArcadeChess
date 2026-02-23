@@ -82,25 +82,27 @@ namespace ChaosArcadeTower.Simulation.Combat
 
         public void InvokeDamageDealt(Side atkSide, int atkSlot, PieceInstance attacker,
             Side defSide, int defSlot, PieceInstance defender, int dmg,
-            float timestamp, List<CombatEvent> events)
+            float timestamp, ICombatEventSink sink)
         {
+            var eventList = (sink as ListCombatEventSink)?.EventList ?? new List<CombatEvent>();
             var perks = GetPerks(atkSide);
             foreach (var perk in perks)
             {
                 var effect = _perkRegistry.GetEffect(perk.Definition);
-                effect?.OnDamageDealt(this, perk, attacker, defender, dmg, timestamp, events);
+                effect?.OnDamageDealt(this, perk, attacker, defender, dmg, timestamp, eventList);
             }
         }
 
         public void InvokePieceKilled(Side killerSide, int killerSlot, PieceInstance killer,
             Side victimSide, int victimSlot, PieceInstance victim,
-            float timestamp, List<CombatEvent> events)
+            float timestamp, ICombatEventSink sink)
         {
+            var eventList = (sink as ListCombatEventSink)?.EventList ?? new List<CombatEvent>();
             var perks = GetPerks(killerSide);
             foreach (var perk in perks)
             {
                 var effect = _perkRegistry.GetEffect(perk.Definition);
-                effect?.OnPieceKilled(this, perk, killer, victim, timestamp, events);
+                effect?.OnPieceKilled(this, perk, killer, victim, timestamp, eventList);
             }
         }
 

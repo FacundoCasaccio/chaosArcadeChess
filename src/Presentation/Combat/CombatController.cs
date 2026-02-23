@@ -10,10 +10,12 @@ namespace ChaosArcadeTower.Presentation.Combat
 {
     public partial class CombatController : Control
     {
+        private const int MAX_LOG_LINES = 300;
+
         private GameStateMachine _gsm = null!;
         private Label _timerLabel = null!;
-        private HBoxContainer _playerBoard = null!;
-        private HBoxContainer _enemyBoard = null!;
+        private HBoxContainer _playerBoardContainer = null!;
+        private HBoxContainer _enemyBoardContainer = null!;
         private RichTextLabel _combatLog = null!;
         private RichTextLabel _pieceInfo = null!;
         private Button _continueBtn = null!;
@@ -26,15 +28,23 @@ namespace ChaosArcadeTower.Presentation.Combat
         private int _eventIndex;
         private float _combatDuration;
         private bool _combatFinished;
+        private int _logLineCount;
+
+        private BoardState _pbPlayer = new();
+        private BoardState _pbEnemy = new();
 
         public override void _Ready()
         {
             _gsm = ServiceLocator.Get<GameStateMachine>();
             _result = _gsm.LastCombatResult;
             _events = _result?.EventLog ?? new();
-            _combatDuration = _result?.DurationSeconds ?? 30f;
+            _combatDuration = _result?.DurationSeconds ?? 15f;
+
+            _pbPlayer = _gsm.CurrentRun?.Board.DeepClone() ?? new BoardState();
+            _pbEnemy = _gsm.CurrentBot?.Board.DeepClone() ?? new BoardState();
+
             BuildUI();
-            RenderBoards(_gsm.CurrentRun?.Board, _gsm.CurrentBot?.Board);
+            RenderBoards();
         }
 
         public override void _Process(double delta)
@@ -46,20 +56,24 @@ namespace ChaosArcadeTower.Presentation.Combat
             if (displayTime < 0) displayTime = 0;
             _timerLabel.Text = $"{displayTime:F1}s";
 
+            bool boardDirty = false;
             while (_eventIndex < _events.Count && _events[_eventIndex].Timestamp <= _playbackTime)
             {
                 var evt = _events[_eventIndex];
-                _combatLog.AppendText(evt.ToLogString() + "\n");
-                UpdateBoardVisuals(evt);
+                AppendCombatEvent(evt);
+                ApplyEventToPlayback(evt);
+                boardDirty = true;
                 _eventIndex++;
             }
+
+            if (boardDirty)
+                RenderBoards();
 
             if (_playbackTime >= _combatDuration)
             {
                 _combatFinished = true;
                 _continueBtn.Disabled = false;
                 _timerLabel.Text = "COMBAT OVER";
-                RenderFinalState();
             }
         }
 
@@ -70,8 +84,11 @@ namespace ChaosArcadeTower.Presentation.Combat
             vbox.AddThemeConstantOverride("separation", 8);
             AddChild(vbox);
 
-            // Timer
-            _timerLabel = new Label { Text = "30.0s", HorizontalAlignment = HorizontalAlignment.Center };
+            _timerLabel = new Label
+            {
+                Text = $"{_combatDuration:F1}s",
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
             _timerLabel.AddThemeFontSizeOverride("font_size", 32);
             vbox.AddChild(_timerLabel);
 
@@ -80,42 +97,41 @@ namespace ChaosArcadeTower.Presentation.Combat
             mainHBox.AddThemeConstantOverride("separation", 12);
             vbox.AddChild(mainHBox);
 
-            // Left panels
             var leftPanel = new VBoxContainer { CustomMinimumSize = new Vector2(200, 0) };
             _playerInfoLabel = new Label { Text = FormatPlayerInfo(), AutowrapMode = TextServer.AutowrapMode.Word };
             leftPanel.AddChild(_playerInfoLabel);
-            var sep = new HSeparator();
-            leftPanel.AddChild(sep);
+            leftPanel.AddChild(new HSeparator());
             _enemyInfoLabel = new Label { Text = FormatEnemyInfo(), AutowrapMode = TextServer.AutowrapMode.Word };
             leftPanel.AddChild(_enemyInfoLabel);
             mainHBox.AddChild(leftPanel);
 
-            // Center: boards + log
             var centerPanel = new VBoxContainer();
             centerPanel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
 
-            _enemyBoard = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
-            _enemyBoard.AddThemeConstantOverride("separation", 6);
-            centerPanel.AddChild(_enemyBoard);
+            _enemyBoardContainer = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
+            _enemyBoardContainer.AddThemeConstantOverride("separation", 6);
+            centerPanel.AddChild(_enemyBoardContainer);
 
-            _playerBoard = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
-            _playerBoard.AddThemeConstantOverride("separation", 6);
-            centerPanel.AddChild(_playerBoard);
+            _playerBoardContainer = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
+            _playerBoardContainer.AddThemeConstantOverride("separation", 6);
+            centerPanel.AddChild(_playerBoardContainer);
 
             var logTitle = new Label { Text = "Combat Log" };
+            logTitle.AddThemeFontSizeOverride("font_size", 14);
             centerPanel.AddChild(logTitle);
 
-            var logScroll = new ScrollContainer();
-            logScroll.SizeFlagsVertical = SizeFlags.ExpandFill;
-            logScroll.CustomMinimumSize = new Vector2(0, 150);
-            _combatLog = new RichTextLabel { BbcodeEnabled = true, SizeFlagsVertical = SizeFlags.ExpandFill };
-            _combatLog.ScrollFollowing = true;
-            logScroll.AddChild(_combatLog);
-            centerPanel.AddChild(logScroll);
+            _combatLog = new RichTextLabel
+            {
+                BbcodeEnabled = true,
+                SizeFlagsVertical = SizeFlags.ExpandFill,
+                ScrollFollowing = true,
+                CustomMinimumSize = new Vector2(0, 180)
+            };
+            _combatLog.AddThemeFontSizeOverride("normal_font_size", 12);
+            centerPanel.AddChild(_combatLog);
 
             mainHBox.AddChild(centerPanel);
 
-            // Right: piece info + continue
             var rightPanel = new VBoxContainer { CustomMinimumSize = new Vector2(250, 0) };
             var infoTitle = new Label { Text = "Info" };
             infoTitle.AddThemeFontSizeOverride("font_size", 18);
@@ -135,24 +151,22 @@ namespace ChaosArcadeTower.Presentation.Combat
             mainHBox.AddChild(rightPanel);
         }
 
-        private void RenderBoards(BoardState? player, BoardState? enemy)
+        private void RenderBoards()
         {
-            RenderBoard(_playerBoard, player, "A");
-            RenderBoard(_enemyBoard, enemy, "B");
+            RenderBoard(_playerBoardContainer, _pbPlayer, "A");
+            RenderBoard(_enemyBoardContainer, _pbEnemy, "B");
         }
 
-        private void RenderBoard(HBoxContainer container, BoardState? board, string prefix)
+        private void RenderBoard(HBoxContainer container, BoardState board, string prefix)
         {
             foreach (var c in container.GetChildren()) c.QueueFree();
-            if (board == null) return;
 
             for (int i = 0; i < BoardState.ACTIVE_SLOTS; i++)
             {
-                int slot = i;
                 var piece = board.GetSlot(i);
                 var panel = new PanelContainer { CustomMinimumSize = new Vector2(110, 110) };
-
                 var vbox = new VBoxContainer();
+
                 var nameLabel = new Label
                 {
                     Text = piece != null ? $"{prefix}{i + 1}: {piece.Definition.Type}" : $"{prefix}{i + 1}: Empty",
@@ -162,9 +176,10 @@ namespace ChaosArcadeTower.Presentation.Combat
 
                 if (piece != null && !piece.IsDead)
                 {
+                    float hpPct = piece.MaxHp > 0 ? (float)piece.CurrentHp / piece.MaxHp * 100f : 0f;
                     var hpBar = new ProgressBar
                     {
-                        Value = 100,
+                        Value = hpPct,
                         CustomMinimumSize = new Vector2(0, 16),
                         ShowPercentage = false
                     };
@@ -172,18 +187,33 @@ namespace ChaosArcadeTower.Presentation.Combat
 
                     var statsLabel = new Label
                     {
-                        Text = $"HP:{piece.CurrentHp} ATK:{piece.Atk}",
+                        Text = $"HP:{piece.CurrentHp}/{piece.MaxHp} ATK:{piece.Atk}",
                         HorizontalAlignment = HorizontalAlignment.Center
                     };
                     vbox.AddChild(statsLabel);
 
+                    float cdPct = piece.EffectiveCooldown > 0
+                        ? (1f - piece.CooldownTimer / piece.EffectiveCooldown) * 100f
+                        : 100f;
+                    if (cdPct < 0f) cdPct = 0f;
+                    if (cdPct > 100f) cdPct = 100f;
                     var cdBar = new ProgressBar
                     {
-                        Value = 0,
+                        Value = cdPct,
                         CustomMinimumSize = new Vector2(0, 10),
                         ShowPercentage = false
                     };
                     vbox.AddChild(cdBar);
+                }
+                else if (piece != null && piece.IsDead)
+                {
+                    var deadLabel = new Label
+                    {
+                        Text = "DEAD",
+                        HorizontalAlignment = HorizontalAlignment.Center
+                    };
+                    deadLabel.AddThemeColorOverride("font_color", new Color(0.8f, 0.2f, 0.2f));
+                    vbox.AddChild(deadLabel);
                 }
 
                 panel.AddChild(vbox);
@@ -191,21 +221,58 @@ namespace ChaosArcadeTower.Presentation.Combat
             }
         }
 
-        private void UpdateBoardVisuals(CombatEvent evt)
+        private void ApplyEventToPlayback(CombatEvent evt)
         {
-            if (_result == null) return;
-
-            if (evt.Type == CombatEventType.Damage || evt.Type == CombatEventType.PieceKilled ||
-                evt.Type == CombatEventType.Heal || evt.Type == CombatEventType.BurnTick)
+            PieceInstance? piece;
+            switch (evt.Type)
             {
-                RenderBoards(_result.FinalPlayerBoard, _result.FinalEnemyBoard);
+                case CombatEventType.Damage:
+                case CombatEventType.BurnTick:
+                    piece = GetPlaybackPiece(evt.TargetSide, evt.TargetSlot);
+                    if (piece != null)
+                        piece.CurrentHp = evt.TargetHpAfter;
+                    break;
+                case CombatEventType.Heal:
+                    piece = GetPlaybackPiece(evt.TargetSide, evt.TargetSlot);
+                    if (piece != null)
+                        piece.CurrentHp = evt.TargetHpAfter;
+                    break;
+                case CombatEventType.PieceKilled:
+                    piece = GetPlaybackPiece(evt.TargetSide, evt.TargetSlot);
+                    if (piece != null)
+                        piece.CurrentHp = 0;
+                    break;
             }
         }
 
-        private void RenderFinalState()
+        private PieceInstance? GetPlaybackPiece(Side side, int slot)
         {
-            if (_result == null) return;
-            RenderBoards(_result.FinalPlayerBoard, _result.FinalEnemyBoard);
+            var board = side == Side.Player ? _pbPlayer : _pbEnemy;
+            return board.GetSlot(slot);
+        }
+
+        private void AppendCombatEvent(CombatEvent evt)
+        {
+            string color = evt.Type switch
+            {
+                CombatEventType.Damage => "#ffffff",
+                CombatEventType.PieceKilled => "#ff4444",
+                CombatEventType.Heal => "#44ff44",
+                CombatEventType.BurnTick => "#ff8844",
+                CombatEventType.EmptySlotHit => "#888888",
+                CombatEventType.StatusApplied => "#ffff44",
+                CombatEventType.PerkTriggered => "#44ccff",
+                _ => "#cccccc"
+            };
+
+            _combatLog.AppendText($"[color={color}]{evt.ToLogString()}[/color]\n");
+            _logLineCount++;
+
+            while (_logLineCount > MAX_LOG_LINES)
+            {
+                _combatLog.RemoveParagraph(0);
+                _logLineCount--;
+            }
         }
 
         private string FormatPlayerInfo()
