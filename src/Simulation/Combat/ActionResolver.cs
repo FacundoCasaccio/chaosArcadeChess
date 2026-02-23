@@ -8,6 +8,12 @@ namespace ChaosArcadeTower.Simulation.Combat
 {
     public static class ActionResolver
     {
+        /// <summary>
+        /// Execute a single piece's action.  Between each sub-step (each
+        /// attack target, each heal target, each buff) the actor's alive
+        /// state is rechecked so that reflected/thorns damage that kills
+        /// the actor stops the remainder of the action.
+        /// </summary>
         public static void Execute(
             PieceInstance actor, int actorSlot, Side actorSide,
             BoardState allyBoard, BoardState enemyBoard,
@@ -23,6 +29,8 @@ namespace ChaosArcadeTower.Simulation.Combat
                 var targets = ResolveTargetOffsets(atkGroup.Offsets, atkGroup.Pick, actorSlot, rng);
                 foreach (int offset in targets)
                 {
+                    if (actor.IsDead) return;
+
                     int targetSlot = actorSlot + offset;
                     if (targetSlot < 0 || targetSlot >= BoardState.ACTIVE_SLOTS) continue;
 
@@ -51,6 +59,8 @@ namespace ChaosArcadeTower.Simulation.Combat
                 }
             }
 
+            if (actor.IsDead) return;
+
             foreach (var healGroup in actionDef.Heals)
             {
                 var healTargets = ResolveHealTargets(healGroup, actorSlot, allyBoard, rng);
@@ -62,6 +72,8 @@ namespace ChaosArcadeTower.Simulation.Combat
                     events.Add(CombatEvent.Heal(timestamp, actorSide, actorSlot, actorSide, slot, healGroup.Amount));
                 }
             }
+
+            if (actor.IsDead) return;
 
             foreach (var buffGroup in actionDef.Buffs)
             {

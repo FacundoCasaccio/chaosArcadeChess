@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using ChaosArcadeTower.Core.Random;
@@ -17,6 +18,23 @@ namespace ChaosArcadeTower.Simulation.Combat
             int seed);
     }
 
+    /// <summary>
+    /// Deterministic tick-based combat.
+    ///
+    /// Resolution order per tick:
+    ///   1. Status effects tick (burn damage, expiry).
+    ///   2. All alive pieces' cooldowns are advanced by tickSeconds.
+    ///   3. Pieces whose cooldownTimer &lt;= 0 are collected as ready actors.
+    ///   4. Ready actors are sorted by (slotIndex ASC, piece.Id ASC) for
+    ///      stable, deterministic ordering.
+    ///   5. Each ready actor is resolved one-by-one.  Before executing,
+    ///      the actor's alive state is re-checked (it may have been killed
+    ///      by a prior action in the same tick).
+    ///   6. Timed perk effects are processed.
+    ///
+    /// Initial cooldowns are staggered by slotIndex * tickSeconds so the
+    /// first wave of actions resolves sequentially rather than as one burst.
+    /// </summary>
     public class CombatResolver : ICombatResolver
     {
         private readonly float _duration;
@@ -47,25 +65,35 @@ namespace ChaosArcadeTower.Simulation.Combat
 
             ApplyPreCombatPerks(ctx, pPerks, Side.Player);
             ApplyPreCombatPerks(ctx, ePerks, Side.Enemy);
-            InitializeCooldowns(pBoard, rng);
-            InitializeCooldowns(eBoard, rng);
+            InitializeCooldowns(pBoard);
+            InitializeCooldowns(eBoard);
 
             int totalTicks = (int)(_duration / _tickSeconds);
 
             for (int tick = 0; tick < totalTicks; tick++)
             {
                 float elapsed = tick * _tickSeconds;
+
+                // 1. Tick status effects (burn damage, expiry)
                 TickStatusEffects(pBoard, eBoard, _tickSeconds, elapsed, events);
 
-                var readyPieces = CollectReadyPieces(pBoard, eBoard, _tickSeconds);
-                readyPieces.Sort((a, b) =>
+                // 2. Advance cooldowns for all alive pieces
+                AdvanceCooldowns(pBoard, _tickSeconds);
+                AdvanceCooldowns(eBoard, _tickSeconds);
+
+                // 3. Collect alive pieces whose cooldown fired
+                var readyActors = CollectReadyActors(pBoard, eBoard);
+
+                // 4. Sort: slot index ASC, then piece.Id ASC (stable + deterministic)
+                readyActors.Sort((a, b) =>
                 {
                     int cmp = a.slot.CompareTo(b.slot);
                     if (cmp != 0) return cmp;
-                    return a.side.CompareTo(b.side);
+                    return string.Compare(a.piece.Id, b.piece.Id, StringComparison.Ordinal);
                 });
 
-                foreach (var (piece, slot, side) in readyPieces)
+                // 5. Resolve one-by-one; re-check alive before each action
+                foreach (var (piece, slot, side) in readyActors)
                 {
                     if (piece.IsDead) continue;
 
@@ -84,6 +112,7 @@ namespace ChaosArcadeTower.Simulation.Combat
                     piece.CooldownTimer = piece.EffectiveCooldown;
                 }
 
+                // 6. Timed perk effects
                 ProcessTimedPerks(ctx, pPerks, Side.Player, elapsed, events, rng);
                 ProcessTimedPerks(ctx, ePerks, Side.Enemy, elapsed, events, rng);
             }
@@ -101,38 +130,44 @@ namespace ChaosArcadeTower.Simulation.Combat
             }
         }
 
-        private void InitializeCooldowns(BoardState board, IRandomService rng)
+        /// <summary>
+        /// Stagger initial cooldowns by slotIndex * tickSeconds so pieces
+        /// fire sequentially (slot 0 first) instead of all at once.
+        /// </summary>
+        private void InitializeCooldowns(BoardState board)
         {
             for (int i = 0; i < BoardState.ACTIVE_SLOTS; i++)
             {
                 var piece = board.GetSlot(i);
                 if (piece != null)
-                    piece.CooldownTimer = piece.EffectiveCooldown;
+                    piece.CooldownTimer = piece.EffectiveCooldown + i * _tickSeconds;
             }
         }
 
-        private List<(PieceInstance piece, int slot, Side side)> CollectReadyPieces(
-            BoardState playerBoard, BoardState enemyBoard, float dt)
+        private static void AdvanceCooldowns(BoardState board, float dt)
+        {
+            for (int i = 0; i < BoardState.ACTIVE_SLOTS; i++)
+            {
+                var piece = board.GetSlot(i);
+                if (piece != null && !piece.IsDead)
+                    piece.CooldownTimer -= dt;
+            }
+        }
+
+        private static List<(PieceInstance piece, int slot, Side side)> CollectReadyActors(
+            BoardState playerBoard, BoardState enemyBoard)
         {
             var ready = new List<(PieceInstance, int, Side)>();
 
             for (int i = 0; i < BoardState.ACTIVE_SLOTS; i++)
             {
                 var pp = playerBoard.GetSlot(i);
-                if (pp != null && !pp.IsDead)
-                {
-                    pp.CooldownTimer -= dt;
-                    if (pp.CooldownTimer <= 0)
-                        ready.Add((pp, i, Side.Player));
-                }
+                if (pp != null && !pp.IsDead && pp.CooldownTimer <= 0)
+                    ready.Add((pp, i, Side.Player));
 
                 var ep = enemyBoard.GetSlot(i);
-                if (ep != null && !ep.IsDead)
-                {
-                    ep.CooldownTimer -= dt;
-                    if (ep.CooldownTimer <= 0)
-                        ready.Add((ep, i, Side.Enemy));
-                }
+                if (ep != null && !ep.IsDead && ep.CooldownTimer <= 0)
+                    ready.Add((ep, i, Side.Enemy));
             }
 
             return ready;
