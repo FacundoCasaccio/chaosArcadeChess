@@ -19,6 +19,10 @@ namespace ChaosArcadeTower.Simulation.Effects
         private readonly FirstStrikeEffect _firstStrikeEffect = new();
         private TimeDilationEffect _timeDilationEffect = new();
         private BlackoutEffect _blackoutEffect = new();
+        private EmergencyPatchEffect _emergencyPatchEffect = new();
+        private ArcBatteryEffect _arcBatteryEffect = new();
+        private RoyalGuardEffect _royalGuardEffect = new();
+        private BishopCommunionEffect _bishopCommunionEffect = new();
 
         public PerkEffectRegistry()
         {
@@ -29,6 +33,15 @@ namespace ChaosArcadeTower.Simulation.Effects
             _effects["r_first_strike"] = _firstStrikeEffect;
             _effects["u_time_dilation"] = _timeDilationEffect;
             _effects["u_blackout"] = _blackoutEffect;
+            _effects["r_emergency_patch"] = _emergencyPatchEffect;
+            _effects["e_arc_battery"] = _arcBatteryEffect;
+            _effects["u_all_pawns_ascend"] = new AllPawnsAscendEffect();
+            _effects["u_horsemen"] = new HorsemenEffect();
+            _effects["u_twin_towers"] = new TwinTowersEffect();
+            _effects["u_royal_guard"] = _royalGuardEffect;
+            _effects["u_bishop_communion"] = _bishopCommunionEffect;
+            _effects["e_double_tap"] = new DoubleTapEffect();
+            _effects["e_pawn_chain"] = new PawnChainEffect();
         }
 
         public void ResetCombatState()
@@ -36,8 +49,16 @@ namespace ChaosArcadeTower.Simulation.Effects
             _oneShotEffect = new OneShotPerkEffect();
             _timeDilationEffect = new TimeDilationEffect();
             _blackoutEffect = new BlackoutEffect();
+            _emergencyPatchEffect = new EmergencyPatchEffect();
+            _arcBatteryEffect = new ArcBatteryEffect();
+            _royalGuardEffect = new RoyalGuardEffect();
+            _bishopCommunionEffect = new BishopCommunionEffect();
             _effects["u_time_dilation"] = _timeDilationEffect;
             _effects["u_blackout"] = _blackoutEffect;
+            _effects["r_emergency_patch"] = _emergencyPatchEffect;
+            _effects["e_arc_battery"] = _arcBatteryEffect;
+            _effects["u_royal_guard"] = _royalGuardEffect;
+            _effects["u_bishop_communion"] = _bishopCommunionEffect;
         }
 
         public IPerkEffect? GetEffect(PerkDefinition def)

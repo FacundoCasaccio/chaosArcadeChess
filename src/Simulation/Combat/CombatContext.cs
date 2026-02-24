@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using ChaosArcadeTower.Core.Random;
 using ChaosArcadeTower.Domain.Board;
 using ChaosArcadeTower.Domain.Combat;
 using ChaosArcadeTower.Domain.Perks;
@@ -20,6 +21,8 @@ namespace ChaosArcadeTower.Simulation.Combat
         public int PlayerPerkBonus { get; set; }
         public int EnemyPerkBonus { get; set; }
         public int LastReflectedDamage { get; set; }
+        public float CombatDuration { get; set; }
+        public IRandomService? CombatRng { get; set; }
 
         private readonly PerkEffectRegistry _perkRegistry;
 

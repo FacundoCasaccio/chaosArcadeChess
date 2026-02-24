@@ -55,6 +55,10 @@ namespace ChaosArcadeTower.Simulation.Effects
             int addHpAll = def.GetIntParam("add_hp_all") * stacks;
             int addAtkAll = def.GetIntParam("add_atk_all") * stacks;
             float cdMultAll = def.GetFloatParam("cooldown_mult_all", 1f);
+            int reserveBonus = def.GetIntParam("reserve_size_bonus") * stacks;
+
+            if (reserveBonus > 0)
+                board.MaxReserve += reserveBonus;
 
             bool conditionMet = CheckConditions(def, board);
             if (!conditionMet) return;

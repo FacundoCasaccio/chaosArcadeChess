@@ -36,6 +36,7 @@ namespace ChaosArcadeTower.Presentation.GameFlow
         public RunState? CurrentRun { get; private set; }
         public CombatResult? LastCombatResult { get; set; }
         public BotLoadout? CurrentBot { get; set; }
+        public PieceInstance? PendingPieceGrant { get; set; }
 
         private ContentService _content = null!;
         private BalanceData _balance = null!;
@@ -204,6 +205,47 @@ namespace ChaosArcadeTower.Presentation.GameFlow
         {
             if (CurrentRun == null) return;
 
+            string addPieceType = chosenPerk.GetStringParam("add_piece_type");
+            if (!string.IsNullOrEmpty(addPieceType))
+            {
+                if (Enum.TryParse<PieceType>(addPieceType, true, out var pt))
+                {
+                    var def = _content.GetPieceDefinition(pt);
+                    int pieceId = CurrentRun.Board.Reserve.Count + CurrentRun.Board.GetAllPieces().Count;
+                    var piece = new PieceInstance(def, $"p_{pieceId}");
+                    CurrentRun.Board.Reserve.Add(piece);
+                }
+                CurrentRun.AdvanceFloor();
+                TransitionTo(GameState.StrategyTable);
+                return;
+            }
+
+            string transformTo = chosenPerk.GetStringParam("transform_to");
+            if (!string.IsNullOrEmpty(transformTo) && targetSlotIndex.HasValue)
+            {
+                if (Enum.TryParse<PieceType>(transformTo, true, out var newType))
+                {
+                    var oldPiece = CurrentRun.Board.GetSlot(targetSlotIndex.Value);
+                    if (oldPiece != null)
+                    {
+                        var newDef = _content.GetPieceDefinition(newType);
+                        var newPiece = new PieceInstance(newDef, oldPiece.Id)
+                        {
+                            BonusHp = oldPiece.BonusHp,
+                            BonusAtk = oldPiece.BonusAtk,
+                            CooldownMultiplier = oldPiece.CooldownMultiplier,
+                            Enchant = oldPiece.Enchant
+                        };
+                        newPiece.AppliedPerkIds.AddRange(oldPiece.AppliedPerkIds);
+                        newPiece.ApplyBonuses();
+                        CurrentRun.Board.SetSlot(targetSlotIndex.Value, newPiece);
+                    }
+                }
+                CurrentRun.AdvanceFloor();
+                TransitionTo(GameState.StrategyTable);
+                return;
+            }
+
             var existing = CurrentRun.Perks.Find(p => p.Definition.Id == chosenPerk.Id);
             if (existing != null && existing.CanStack)
             {
@@ -221,6 +263,22 @@ namespace ChaosArcadeTower.Presentation.GameFlow
                 CurrentRun.Perks.Add(instance);
             }
 
+            int reserveBonus = chosenPerk.GetIntParam("reserve_size_bonus");
+            if (reserveBonus > 0)
+                CurrentRun.Board.MaxReserve += reserveBonus;
+
+            CurrentRun.AdvanceFloor();
+            TransitionTo(GameState.StrategyTable);
+        }
+
+        public void OnPieceGrantReplacement(int reserveIndexToReplace)
+        {
+            if (CurrentRun == null || PendingPieceGrant == null) return;
+            if (reserveIndexToReplace >= 0 && reserveIndexToReplace < CurrentRun.Board.Reserve.Count)
+                CurrentRun.Board.Reserve[reserveIndexToReplace] = PendingPieceGrant;
+            else
+                CurrentRun.Board.Reserve.Add(PendingPieceGrant);
+            PendingPieceGrant = null;
             CurrentRun.AdvanceFloor();
             TransitionTo(GameState.StrategyTable);
         }

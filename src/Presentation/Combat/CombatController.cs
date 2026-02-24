@@ -5,6 +5,7 @@ using ChaosArcadeTower.Domain.Board;
 using ChaosArcadeTower.Domain.Combat;
 using ChaosArcadeTower.Domain.Pieces;
 using ChaosArcadeTower.Presentation.GameFlow;
+using ChaosArcadeTower.Presentation.Shared;
 using CombatSide = ChaosArcadeTower.Domain.Combat.Side;
 
 namespace ChaosArcadeTower.Presentation.Combat
@@ -312,6 +313,10 @@ namespace ChaosArcadeTower.Presentation.Combat
                 }
 
                 panel.AddChild(vbox);
+                panel.MouseFilter = MouseFilterEnum.Stop;
+                int hoverSlot = i;
+                string hoverPrefix = prefix;
+                panel.MouseEntered += () => OnCombatPieceHovered(hoverPrefix, hoverSlot);
                 container.AddChild(panel);
             }
         }
@@ -382,6 +387,16 @@ namespace ChaosArcadeTower.Presentation.Combat
             var bot = _gsm.CurrentBot;
             if (bot == null) return "";
             return $"{bot.BotName}\nWins: {bot.Wins}\nLives: {bot.Lives}\nPerks: {bot.Perks.Count}";
+        }
+
+        private void OnCombatPieceHovered(string prefix, int slot)
+        {
+            var side = prefix == "A" ? CombatSide.Player : CombatSide.Enemy;
+            var piece = GetPlaybackPiece(side, slot);
+            if (piece == null) return;
+
+            var perks = side == CombatSide.Player ? _gsm.CurrentRun?.Perks : _gsm.CurrentBot?.Perks;
+            _pieceInfo.Text = PieceInfoFormatter.Format(piece, slot, perks);
         }
 
         private void OnContinue() => _gsm.OnCombatContinue();

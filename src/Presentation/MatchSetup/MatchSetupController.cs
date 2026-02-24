@@ -1,8 +1,11 @@
 using Godot;
 using ChaosArcadeTower.Core;
 using ChaosArcadeTower.Domain.Board;
+using ChaosArcadeTower.Domain.Perks;
 using ChaosArcadeTower.Domain.Pieces;
 using ChaosArcadeTower.Presentation.GameFlow;
+using ChaosArcadeTower.Presentation.Shared;
+using ChaosArcadeTower.Simulation.Effects;
 
 namespace ChaosArcadeTower.Presentation.MatchSetup
 {
@@ -121,32 +124,58 @@ namespace ChaosArcadeTower.Presentation.MatchSetup
             foreach (var child in container.GetChildren())
                 child.QueueFree();
 
-            var board = isPlayer ? _gsm.CurrentRun?.Board : _gsm.CurrentBot?.Board;
-            if (board == null) return;
+            var rawBoard = isPlayer ? _gsm.CurrentRun?.Board : _gsm.CurrentBot?.Board;
+            if (rawBoard == null) return;
+
+            var perks = isPlayer ? _gsm.CurrentRun?.Perks : _gsm.CurrentBot?.Perks;
+            var registry = ServiceLocator.Get<PerkEffectRegistry>();
+            var board = PerkPreviewService.PreviewBoard(rawBoard,
+                perks ?? new System.Collections.Generic.List<ChaosArcadeTower.Domain.Perks.PerkInstance>(), registry);
 
             for (int i = 0; i < BoardState.ACTIVE_SLOTS; i++)
             {
                 int slot = i;
                 var piece = board.GetSlot(i);
-                var btn = new Button
-                {
-                    CustomMinimumSize = new Vector2(110, 110),
-                    Text = piece != null ? $"{piece.Definition.Type}\nHP:{piece.MaxHp}\nATK:{piece.Atk}" : "[Empty]"
-                };
+                bool boosted = piece != null && (piece.BonusHp != 0 || piece.BonusAtk != 0);
+                string marker = boosted ? "*" : "";
+                string text = piece != null
+                    ? $"{piece.Definition.Type}{marker}\nHP:{piece.MaxHp}\nATK:{piece.Atk}"
+                    : "[Empty]";
 
+                var pRef = piece;
+                var perkRef = perks;
                 if (isPlayer)
                 {
+                    var btn = new DraggableSlot
+                    {
+                        CustomMinimumSize = new Vector2(110, 110),
+                        Text = text,
+                        SlotCode = DraggableSlot.ActiveCode(slot),
+                        OnSwapRequested = OnPlayerDragSwap
+                    };
                     btn.Pressed += () => OnPlayerSlotClicked(slot);
+                    btn.MouseEntered += () => OnPlayerSlotHovered(slot);
+                    container.AddChild(btn);
                 }
                 else
                 {
+                    var btn = new Button
+                    {
+                        CustomMinimumSize = new Vector2(110, 110),
+                        Text = text
+                    };
+                    btn.MouseEntered += () =>
+                    {
+                        if (pRef != null)
+                            _pieceInfo.Text = PieceInfoFormatter.Format(pRef, slot, perkRef);
+                    };
                     btn.Pressed += () =>
                     {
-                        if (piece != null)
-                            _pieceInfo.Text = $"[b]{piece.Definition.Type}[/b]\nHP: {piece.MaxHp}\nATK: {piece.Atk}\nCD: {piece.Cooldown:F2}s\nValue: {piece.Value}";
+                        if (pRef != null)
+                            _pieceInfo.Text = PieceInfoFormatter.Format(pRef, slot, perkRef);
                     };
+                    container.AddChild(btn);
                 }
-                container.AddChild(btn);
             }
         }
 
@@ -161,10 +190,28 @@ namespace ChaosArcadeTower.Presentation.MatchSetup
             else
             {
                 _swapSource = slot;
-                var piece = _gsm.CurrentRun?.Board.GetSlot(slot);
-                if (piece != null)
-                    _pieceInfo.Text = $"[b]{piece.Definition.Type}[/b] (Slot {slot + 1})\nHP: {piece.MaxHp}\nATK: {piece.Atk}\nCD: {piece.Cooldown:F2}s\nClick another slot to swap.";
+                OnPlayerSlotHovered(slot);
             }
+        }
+
+        private void OnPlayerSlotHovered(int slot)
+        {
+            var run = _gsm.CurrentRun;
+            if (run == null) return;
+            var registry = ServiceLocator.Get<PerkEffectRegistry>();
+            var preview = PerkPreviewService.PreviewBoard(run.Board, run.Perks, registry);
+            var piece = preview.GetSlot(slot);
+            if (piece != null)
+                _pieceInfo.Text = PieceInfoFormatter.Format(piece, slot, run.Perks);
+        }
+
+        private void OnPlayerDragSwap(int fromCode, int toCode)
+        {
+            int fromIdx = DraggableSlot.ToIndex(fromCode);
+            int toIdx = DraggableSlot.ToIndex(toCode);
+            _gsm.CurrentRun?.Board.SwapSlots(fromIdx, toIdx);
+            _swapSource = -1;
+            RefreshBoards();
         }
 
         private void UpdateInfoPanels()

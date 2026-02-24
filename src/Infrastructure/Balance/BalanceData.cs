@@ -95,6 +95,10 @@ namespace ChaosArcadeTower.Infrastructure.Balance
         [JsonPropertyName("maxRestarts")] public int MaxRestarts { get; set; } = 6;
         [JsonPropertyName("applyRewardsOnLoss")] public bool ApplyRewardsOnLoss { get; set; } = true;
         [JsonPropertyName("clampRules")] public ClampRulesData ClampRules { get; set; } = new();
+        [JsonPropertyName("minPerksByFloor")] public Dictionary<string, int> MinPerksByFloor { get; set; } = new();
+        [JsonPropertyName("synergyBiasBonus")] public float SynergyBiasBonus { get; set; } = 12f;
+        [JsonPropertyName("synergyDistanceThreshold")] public int SynergyDistanceThreshold { get; set; } = 2;
+        [JsonPropertyName("minBoardPowerByFloor")] public Dictionary<string, float> MinBoardPowerByFloor { get; set; } = new();
     }
 
     public class ClampRulesData

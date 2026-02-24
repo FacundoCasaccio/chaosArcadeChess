@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Godot;
 using ChaosArcadeTower.Core;
@@ -12,7 +13,7 @@ namespace ChaosArcadeTower.Presentation.Reward
 {
     public partial class RewardController : Control
     {
-        private enum Step { ChoosingPerk, ChoosingTarget }
+        private enum Step { ChoosingPerk, ChoosingTarget, ChoosingReplacement }
 
         private GameStateMachine _gsm = null!;
         private List<PerkDefinition> _choices = new();
@@ -162,6 +163,19 @@ namespace ChaosArcadeTower.Presentation.Reward
         {
             if (_selected == null) return;
 
+            string addPieceType = _selected.GetStringParam("add_piece_type");
+            if (!string.IsNullOrEmpty(addPieceType))
+            {
+                var board = _gsm.CurrentRun?.Board;
+                if (board != null && board.Reserve.Count >= board.MaxReserve)
+                {
+                    EnterReplacementPrompt(addPieceType);
+                    return;
+                }
+                _gsm.OnRewardChosen(_selected, null);
+                return;
+            }
+
             if (_selected.NeedsTargetSelection)
             {
                 EnterTargetSelection();
@@ -169,6 +183,74 @@ namespace ChaosArcadeTower.Presentation.Reward
             }
 
             _gsm.OnRewardChosen(_selected, null);
+        }
+
+        private void EnterReplacementPrompt(string pieceTypeName)
+        {
+            _step = Step.ChoosingReplacement;
+            _selectedTargetSlot = -1;
+            _selectedTargetPieceId = null;
+
+            _cardsContainer.Visible = false;
+            _btnBar.Visible = false;
+            _titleLabel.Text = $"Reserve full — replace a piece with {pieceTypeName}?";
+
+            _targetPanel = new VBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
+            _targetPanel.AddThemeConstantOverride("separation", 16);
+
+            var prompt = new Label
+            {
+                Text = "Select a reserve piece to replace, then Confirm. Cancel to discard.",
+                HorizontalAlignment = HorizontalAlignment.Center,
+                AutowrapMode = TextServer.AutowrapMode.Word,
+                CustomMinimumSize = new Vector2(500, 0)
+            };
+            prompt.AddThemeFontSizeOverride("font_size", 16);
+            _targetPanel.AddChild(prompt);
+
+            var reserveRow = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
+            reserveRow.AddThemeConstantOverride("separation", 12);
+            var board = _gsm.CurrentRun!.Board;
+            for (int r = 0; r < board.Reserve.Count; r++)
+            {
+                int rIdx = r;
+                var rPiece = board.Reserve[r];
+                var rBtn = BuildTargetSlotButton(rPiece, -1, isReserve: true, reserveIndex: r);
+                rBtn.Pressed += () => { _selectedTargetSlot = rIdx; _selectedTargetPieceId = rPiece.Id; HighlightReserveButtons(); if (_confirmTargetBtn != null) _confirmTargetBtn.Disabled = false; };
+                reserveRow.AddChild(rBtn);
+            }
+            _targetPanel.AddChild(reserveRow);
+            _targetSlotsContainer = null;
+
+            var targetBtnBar = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
+            targetBtnBar.AddThemeConstantOverride("separation", 20);
+
+            _cancelTargetBtn = new Button { Text = "Cancel (discard)", CustomMinimumSize = new Vector2(140, 45) };
+            _cancelTargetBtn.Pressed += OnCancelTarget;
+            targetBtnBar.AddChild(_cancelTargetBtn);
+
+            _confirmTargetBtn = new Button { Text = "Replace", CustomMinimumSize = new Vector2(120, 45), Disabled = true };
+            _confirmTargetBtn.Pressed += OnConfirmReplacement;
+            targetBtnBar.AddChild(_confirmTargetBtn);
+
+            _targetPanel.AddChild(targetBtnBar);
+            _root.AddChild(_targetPanel);
+        }
+
+        private void OnConfirmReplacement()
+        {
+            if (_selected == null) return;
+            string addPieceType = _selected.GetStringParam("add_piece_type");
+            if (string.IsNullOrEmpty(addPieceType)) return;
+
+            if (Enum.TryParse<PieceType>(addPieceType, true, out var pt))
+            {
+                var content = _gsm.GetContent();
+                var board = _gsm.CurrentRun!.Board;
+                int pieceId = board.Reserve.Count + board.GetAllPieces().Count;
+                _gsm.PendingPieceGrant = new PieceInstance(content.GetPieceDefinition(pt), $"p_{pieceId}");
+            }
+            _gsm.OnPieceGrantReplacement(_selectedTargetSlot);
         }
 
         private void EnterTargetSelection()
@@ -203,6 +285,11 @@ namespace ChaosArcadeTower.Presentation.Reward
             };
             _targetSlotsContainer.AddThemeConstantOverride("separation", 12);
 
+            string reqType = _selected!.GetStringParam("require_piece_type");
+            PieceType? requiredPieceType = null;
+            if (!string.IsNullOrEmpty(reqType) && Enum.TryParse<PieceType>(reqType, true, out var rpt))
+                requiredPieceType = rpt;
+
             var board = _gsm.CurrentRun?.Board;
             if (board != null)
             {
@@ -210,7 +297,8 @@ namespace ChaosArcadeTower.Presentation.Reward
                 {
                     int slot = i;
                     var piece = board.GetSlot(i);
-                    var slotBtn = BuildTargetSlotButton(piece, i);
+                    bool typeDisabled = requiredPieceType.HasValue && (piece == null || piece.Definition.Type != requiredPieceType.Value);
+                    var slotBtn = BuildTargetSlotButton(piece, i, typeFilter: typeDisabled);
                     slotBtn.Pressed += () => OnTargetSlotSelected(slot, piece);
                     _targetSlotsContainer.AddChild(slotBtn);
                 }
@@ -261,9 +349,9 @@ namespace ChaosArcadeTower.Presentation.Reward
         }
 
         private Button BuildTargetSlotButton(PieceInstance? piece, int slotIndex,
-            bool isReserve = false, int reserveIndex = -1)
+            bool isReserve = false, int reserveIndex = -1, bool typeFilter = false)
         {
-            bool valid = piece != null && !piece.IsDead;
+            bool valid = piece != null && !piece.IsDead && !typeFilter;
 
             string label;
             if (piece == null)

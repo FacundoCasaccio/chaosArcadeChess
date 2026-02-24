@@ -105,9 +105,9 @@
     },
     {
       "id": "r_reserve_plus_one", "name": "Expanded Bench", "rarity": "rare", "type": "global",
-      "target": "player", "stacking": "none", "maxStacks": 1,
+      "target": "player", "stacking": "additive", "maxStacks": 3,
       "params": { "reserve_size_bonus": 1 }, "powerScore": 8,
-      "ui": { "desc": "+1 reserve slot (total +1)." }
+      "ui": { "desc": "+1 reserve slot." }
     },
     {
       "id": "e_freeze_on_hit", "name": "Frostbrand", "rarity": "epic", "type": "enchant",
@@ -168,6 +168,103 @@
       "target": "player", "stacking": "none", "maxStacks": 1,
       "params": { "on_enemy_death_chance": 0.35, "enemy_stun_seconds": 0.8 }, "powerScore": 31,
       "ui": { "desc": "On enemy death: 35% chance to Stun the next enemy action for 0.8s." }
+    },
+    {
+      "id": "c_gain_pawn", "name": "Reinforcement: Pawn", "rarity": "common", "type": "global",
+      "target": "player", "stacking": "additive", "maxStacks": 5,
+      "params": { "add_piece_type": "pawn" }, "powerScore": 4,
+      "ui": { "desc": "Add a Pawn to your reserve." }
+    },
+    {
+      "id": "r_gain_knight", "name": "Reinforcement: Knight", "rarity": "rare", "type": "global",
+      "target": "player", "stacking": "additive", "maxStacks": 3,
+      "params": { "add_piece_type": "knight" }, "powerScore": 8,
+      "ui": { "desc": "Add a Knight to your reserve." }
+    },
+    {
+      "id": "r_gain_bishop", "name": "Reinforcement: Bishop", "rarity": "rare", "type": "global",
+      "target": "player", "stacking": "additive", "maxStacks": 3,
+      "params": { "add_piece_type": "bishop" }, "powerScore": 8,
+      "ui": { "desc": "Add a Bishop to your reserve." }
+    },
+    {
+      "id": "r_gain_rook", "name": "Reinforcement: Rook", "rarity": "rare", "type": "global",
+      "target": "player", "stacking": "additive", "maxStacks": 3,
+      "params": { "add_piece_type": "rook" }, "powerScore": 10,
+      "ui": { "desc": "Add a Rook to your reserve." }
+    },
+    {
+      "id": "e_gain_queen", "name": "Reinforcement: Queen", "rarity": "epic", "type": "global",
+      "target": "player", "stacking": "additive", "maxStacks": 2,
+      "params": { "add_piece_type": "queen" }, "powerScore": 20,
+      "ui": { "desc": "Add a Queen to your reserve." }
+    },
+    {
+      "id": "e_gain_king", "name": "Reinforcement: King", "rarity": "epic", "type": "global",
+      "target": "player", "stacking": "additive", "maxStacks": 2,
+      "params": { "add_piece_type": "king" }, "powerScore": 22,
+      "ui": { "desc": "Add a King to your reserve." }
+    },
+
+    {
+      "id": "r_emergency_patch", "name": "Emergency Patch", "rarity": "rare", "type": "one_shot",
+      "target": "player", "stacking": "none", "maxStacks": 1,
+      "params": { "trigger_at_seconds": 7, "heal_lowest": 6 }, "powerScore": 12,
+      "ui": { "desc": "Once per combat at 7s: heal lowest-HP ally for +6." }
+    },
+    {
+      "id": "e_arc_battery", "name": "Arc Battery", "rarity": "epic", "type": "one_shot",
+      "target": "player", "stacking": "none", "maxStacks": 1,
+      "params": { "chain_on_first_hit": true, "chain_targets": 1, "chain_damage_pct": 0.50 }, "powerScore": 24,
+      "ui": { "desc": "Once per combat: first ally hit chains to 1 extra target for 50% dmg." }
+    },
+    {
+      "id": "e_crown_the_pawn", "name": "Crown the Pawn", "rarity": "epic", "type": "stat",
+      "target": "piece", "stacking": "none", "maxStacks": 1,
+      "params": { "transform_to": "queen", "require_piece_type": "pawn" }, "powerScore": 28,
+      "ui": { "desc": "Transform a Pawn into a Queen (preserves bonuses)." }
+    },
+    {
+      "id": "u_all_pawns_ascend", "name": "All Pawns Ascend", "rarity": "unique", "type": "global",
+      "target": "player", "stacking": "none", "maxStacks": 1,
+      "params": { "cond_all_piece_type": "pawn", "hp_mult": 2.0, "atk_mult": 2.0, "cooldown_mult_cond": 0.70 }, "powerScore": 45,
+      "ui": { "desc": "If all active pieces are Pawns: HP x2, ATK x2, cooldown -30%." }
+    },
+    {
+      "id": "u_horsemen", "name": "Horsemen of the Apocalypse", "rarity": "unique", "type": "global",
+      "target": "player", "stacking": "none", "maxStacks": 1,
+      "params": { "cond_min_piece_type": "knight", "cond_min_count": 4, "outgoing_damage_mult": 3.0 }, "powerScore": 42,
+      "ui": { "desc": "If you have 4+ Knights: Knight outgoing damage +200%." }
+    },
+    {
+      "id": "u_twin_towers", "name": "Twin Towers", "rarity": "unique", "type": "global",
+      "target": "player", "stacking": "none", "maxStacks": 1,
+      "params": { "cond_piece_type_extremes": "rook", "add_atk_bonus": 2, "hp_mult": 3.0 }, "powerScore": 38,
+      "ui": { "desc": "If Rooks on both extremes: those Rooks get ATK +2 and HP x3." }
+    },
+    {
+      "id": "u_royal_guard", "name": "Royal Guard", "rarity": "unique", "type": "global",
+      "target": "player", "stacking": "none", "maxStacks": 1,
+      "params": { "cond_has_queen_and_king": true, "damage_reduction_pct": 0.75 }, "powerScore": 40,
+      "ui": { "desc": "If Queen+King: they take 75% less damage until all others die or half combat elapses." }
+    },
+    {
+      "id": "u_bishop_communion", "name": "Bishop Communion", "rarity": "unique", "type": "global",
+      "target": "player", "stacking": "none", "maxStacks": 1,
+      "params": { "cond_min_piece_type": "bishop", "cond_min_count": 3, "lifesteal_pct": 0.20 }, "powerScore": 36,
+      "ui": { "desc": "If 3+ Bishops: all allies gain 20% lifesteal." }
+    },
+    {
+      "id": "e_double_tap", "name": "Double Tap", "rarity": "epic", "type": "stat",
+      "target": "piece", "stacking": "none", "maxStacks": 1,
+      "params": { "double_attack_chance": 0.02 }, "powerScore": 18,
+      "ui": { "desc": "2% chance this piece performs two consecutive attacks." }
+    },
+    {
+      "id": "e_pawn_chain", "name": "Pawn Chain", "rarity": "epic", "type": "piece_type",
+      "target": "piece_type", "stacking": "additive", "maxStacks": 3,
+      "params": { "piece_type": "pawn", "adjacent_atk_bonus": 1 }, "powerScore": 16,
+      "ui": { "desc": "Pawns gain +1 ATK per adjacent pawn (slot adjacency)." }
     }
   ]
 }

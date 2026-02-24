@@ -73,12 +73,26 @@
     "initialBoardSize": 5,
     "reserveSize": 2,
     "simulateAllPreviousFloors": true,
-    "maxRestarts": 6,
+    "maxRestarts": 12,
     "applyRewardsOnLoss": true,
     "clampRules": {
       "maxEpicPerks": 4,
       "maxUniquePerks": 2,
-      "maxTotalPerks": 10
+      "maxTotalPerks": 12
+    },
+    "minPerksByFloor": {
+      "10": 2,
+      "20": 5,
+      "30": 7,
+      "40": 8
+    },
+    "synergyBiasBonus": 12.0,
+    "synergyDistanceThreshold": 2,
+    "minBoardPowerByFloor": {
+      "10": 40.0,
+      "20": 80.0,
+      "30": 120.0,
+      "40": 160.0
     }
   }
 }

@@ -60,6 +60,13 @@ namespace ChaosArcadeTower.Domain.Board
 
         public int CountAlive() => ActiveSlots.Count(p => p != null && !p.IsDead);
 
+        public bool ContainsPiece(PieceInstance piece)
+        {
+            for (int i = 0; i < ACTIVE_SLOTS; i++)
+                if (ActiveSlots[i] == piece) return true;
+            return false;
+        }
+
         public List<PieceInstance> GetAllPieces()
         {
             var all = new List<PieceInstance>();

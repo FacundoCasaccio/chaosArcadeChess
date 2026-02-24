@@ -63,7 +63,11 @@ namespace ChaosArcadeTower.Simulation.Combat
             var ePerks = enemyPerks.Select(p => p.DeepClone()).ToList();
             var rng = new SeededRandomService(seed);
             var sink = new ListCombatEventSink();
-            var ctx = new CombatContext(pBoard, eBoard, pPerks, ePerks, _perkRegistry);
+            var ctx = new CombatContext(pBoard, eBoard, pPerks, ePerks, _perkRegistry)
+            {
+                CombatDuration = _duration,
+                CombatRng = rng
+            };
 
             ApplyPreCombatPerks(ctx, pPerks, Side.Player);
             ApplyPreCombatPerks(ctx, ePerks, Side.Enemy);

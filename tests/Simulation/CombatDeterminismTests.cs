@@ -32,6 +32,7 @@ namespace ChaosArcadeTower.Tests.Simulation
             PerkDeterminism_SameSeedSameLog();
             PieceTypePerkDoesNotNeedTargetSelection();
             EnchantPerkNeedsTargetSelection();
+            PerkPreviewShowsEffectiveStats();
             Console.WriteLine("[CombatDeterminismTests] All tests passed.");
         }
 
@@ -309,6 +310,37 @@ namespace ChaosArcadeTower.Tests.Simulation
             Assert(perk.NeedsTargetSelection,
                 "Enchant perk must require target selection");
             Console.WriteLine("  [PASS] EnchantPerkNeedsTargetSelection");
+        }
+
+        /// <summary>
+        /// PerkPreviewService applies perks to a clone without mutating original.
+        /// </summary>
+        public static void PerkPreviewShowsEffectiveStats()
+        {
+            var board = new BoardState();
+            var pawnDef = new PieceDefinition(PieceType.Pawn, 1, 10, 2, 1.20f, 1);
+            board.SetSlot(0, new PieceInstance(pawnDef, "p_0"));
+
+            var hpPerk = new PerkDefinition
+            {
+                Id = "c_hp_boost", Name = "HP+", Rarity = Rarity.Common,
+                Type = PerkType.Stat, Target = PerkTarget.Piece,
+                Stacking = StackingMode.Additive, MaxStacks = 10,
+                Params = new() { { "add_hp", 5 } }
+            };
+            var perks = new List<PerkInstance> { new(hpPerk) { TargetPieceId = "p_0" } };
+            var registry = new PerkEffectRegistry();
+
+            var preview = PerkPreviewService.PreviewBoard(board, perks, registry);
+
+            Assert(board.GetSlot(0)!.MaxHp == 10,
+                $"Original board must not be mutated, got MaxHp={board.GetSlot(0)!.MaxHp}");
+            Assert(preview.GetSlot(0)!.MaxHp == 15,
+                $"Preview should show 15 HP (10+5), got {preview.GetSlot(0)!.MaxHp}");
+            Assert(preview.GetSlot(0)!.Atk == 2,
+                $"ATK should remain 2, got {preview.GetSlot(0)!.Atk}");
+
+            Console.WriteLine("  [PASS] PerkPreviewShowsEffectiveStats");
         }
 
         // -- helpers --

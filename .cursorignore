@@ -1,0 +1,19 @@
+# Docs / binaries
+docs/**/*.pdf
+docs/**/*.docx
+docs/**/*.pptx
+
+# Images (optional)
+docs/ui/**/*.png
+docs/ui/**/*.jpg
+
+# Godot generated
+.godot/
+.mono/
+.import/
+
+# Build outputs
+bin/
+obj/
+export/
+*.log

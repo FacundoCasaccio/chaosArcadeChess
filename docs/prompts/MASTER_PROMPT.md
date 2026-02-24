@@ -15,6 +15,22 @@
   - `status:in-review` when you finish and provide the Review Packet
   - `status:done` only after the user confirms it’s validated
 
+### Token Discipline (Repo Scanning)
+- Do not scan the whole repo.
+- Use targeted search by symbol/file name.
+- Open only the files you will edit (plus at most 1–2 supporting files).
+- If you need to expand beyond 6 files total, ask first.
+
+### Debugging Discipline
+- Do not "trace the whole flow".
+- Start from the file mentioned in the issue (or the currently visible bug location) and expand minimally.
+- If root cause is not found within 3 files, ask before expanding.
+
+### GitHub Policy (Token Saver)
+- The user will tell you which issue is In Progress in the session prompt.
+- Do not browse the project board or list issues.
+- Do not comment/label automatically; provide a short Review Packet in chat only.
+
 ---
 
 ## Required Docs (Source of Truth)
@@ -50,6 +66,10 @@ If docs conflict:
 ## Review Packet (Mandatory Output)
 
 When you finish an issue, output a **Review Packet** (and post it to the GitHub issue as a comment):
+
+Review Packet:
+- Default: output short Review Packet in chat only.
+- Do NOT post to GitHub automatically unless explicitly requested.
 
 1) Acceptance criteria checklist (pass/fail)
 2) Files changed (list)
@@ -94,7 +114,7 @@ Project board: https://github.com/users/FacundoCasaccio/projects/1
 </context>
 
 <workflow_policy>
-- Identify the single GitHub issue currently in "In Progress" on the project board.
+- User will provide the issue number/title in the session prompt. Do not fetch the board.
 - Confirm its issue number and title at the start.
 - Work ONLY on that issue.
 - Add label "status:in-progress" if missing.

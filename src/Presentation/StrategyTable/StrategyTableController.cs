@@ -4,6 +4,7 @@ using ChaosArcadeTower.Domain.Board;
 using ChaosArcadeTower.Domain.Pieces;
 using ChaosArcadeTower.Presentation.GameFlow;
 using ChaosArcadeTower.Presentation.Shared;
+using ChaosArcadeTower.Simulation.Effects;
 
 namespace ChaosArcadeTower.Presentation.StrategyTable
 {
@@ -103,8 +104,9 @@ namespace ChaosArcadeTower.Presentation.StrategyTable
             for (int i = 0; i < BoardState.ACTIVE_SLOTS; i++)
             {
                 int slot = i;
-                var slotBtn = CreateSlotButton(i);
+                var slotBtn = CreateDraggableSlot(slot, false);
                 slotBtn.Pressed += () => OnSlotClicked(slot);
+                slotBtn.MouseEntered += () => OnSlotHovered(slot);
                 _boardContainer.AddChild(slotBtn);
             }
             panel.AddChild(_boardContainer);
@@ -115,15 +117,8 @@ namespace ChaosArcadeTower.Presentation.StrategyTable
             _reserveContainer = new HBoxContainer();
             _reserveContainer.Alignment = BoxContainer.AlignmentMode.Center;
             _reserveContainer.AddThemeConstantOverride("separation", 8);
-            for (int i = 0; i < BoardState.DEFAULT_RESERVE_SLOTS; i++)
-            {
-                int rIdx = i;
-                var btn = CreateSlotButton(-1);
-                btn.CustomMinimumSize = new Vector2(100, 100);
-                btn.Pressed += () => OnReserveClicked(rIdx);
-                _reserveContainer.AddChild(btn);
-            }
             panel.AddChild(_reserveContainer);
+            RebuildReserveSlots();
 
             var challengeBtn = new Button
             {
@@ -157,14 +152,37 @@ namespace ChaosArcadeTower.Presentation.StrategyTable
             return panel;
         }
 
-        private Button CreateSlotButton(int slotIndex)
+        private DraggableSlot CreateDraggableSlot(int index, bool isReserve)
         {
-            return new Button
+            return new DraggableSlot
             {
                 CustomMinimumSize = new Vector2(120, 130),
                 Text = "Empty",
-                ClipText = true
+                ClipText = true,
+                SlotCode = isReserve ? DraggableSlot.ReserveCode(index) : DraggableSlot.ActiveCode(index),
+                OnSwapRequested = OnDragSwap
             };
+        }
+
+        private void OnDragSwap(int fromCode, int toCode)
+        {
+            var run = _gsm.CurrentRun;
+            if (run == null) return;
+
+            bool fromRes = DraggableSlot.IsReserve(fromCode);
+            bool toRes = DraggableSlot.IsReserve(toCode);
+            int fromIdx = DraggableSlot.ToIndex(fromCode);
+            int toIdx = DraggableSlot.ToIndex(toCode);
+
+            if (!fromRes && !toRes)
+                run.Board.SwapSlots(fromIdx, toIdx);
+            else if (fromRes && !toRes)
+                run.Board.SwapWithReserve(toIdx, fromIdx);
+            else if (!fromRes && toRes)
+                run.Board.SwapWithReserve(fromIdx, toIdx);
+
+            _dragSourceSlot = -1;
+            RefreshBoard();
         }
 
         private void RefreshBoard()
@@ -172,26 +190,47 @@ namespace ChaosArcadeTower.Presentation.StrategyTable
             var run = _gsm.CurrentRun;
             if (run == null) return;
 
+            var registry = ServiceLocator.Get<PerkEffectRegistry>();
+            var preview = PerkPreviewService.PreviewBoard(run.Board, run.Perks, registry);
+
             for (int i = 0; i < BoardState.ACTIVE_SLOTS; i++)
             {
                 var btn = _boardContainer.GetChild<Button>(i);
-                var piece = run.Board.GetSlot(i);
+                var piece = preview.GetSlot(i);
                 btn.Text = piece != null ? FormatSlotText(piece, i) : $"Slot {i + 1}\n[Empty]";
             }
 
-            for (int i = 0; i < _reserveContainer.GetChildCount(); i++)
+            RebuildReserveSlots();
+        }
+
+        private void RebuildReserveSlots()
+        {
+            foreach (var c in _reserveContainer.GetChildren()) c.QueueFree();
+
+            var run = _gsm.CurrentRun;
+            if (run == null) return;
+
+            int maxRes = run.Board.MaxReserve;
+            for (int i = 0; i < maxRes; i++)
             {
-                var btn = _reserveContainer.GetChild<Button>(i);
+                int rIdx = i;
+                var btn = CreateDraggableSlot(rIdx, true);
+                btn.CustomMinimumSize = new Vector2(100, 100);
                 btn.Text = i < run.Board.Reserve.Count
                     ? FormatSlotText(run.Board.Reserve[i], -1)
                     : "Reserve\n[Empty]";
+                btn.Pressed += () => OnReserveClicked(rIdx);
+                btn.MouseEntered += () => OnReserveHovered(rIdx);
+                _reserveContainer.AddChild(btn);
             }
         }
 
-        private string FormatSlotText(PieceInstance piece, int slot)
+        private static string FormatSlotText(PieceInstance piece, int slot)
         {
             string name = piece.Definition.Type.ToString();
-            return $"{name}\nHP:{piece.MaxHp} ATK:{piece.Atk}\nCD:{piece.Cooldown:F1} Val:{piece.Value}";
+            bool boosted = piece.BonusHp != 0 || piece.BonusAtk != 0 || piece.CooldownMultiplier < 0.999f;
+            string marker = boosted ? "*" : "";
+            return $"{name}{marker}\nHP:{piece.MaxHp} ATK:{piece.Atk}\nCD:{piece.EffectiveCooldown:F1} Val:{piece.Value}";
         }
 
         private void RefreshPlayerInfo()
@@ -240,7 +279,7 @@ namespace ChaosArcadeTower.Presentation.StrategyTable
             if (piece != null)
             {
                 _dragSourceSlot = slotIndex;
-                ShowPieceInfo(piece, slotIndex);
+                OnSlotHovered(slotIndex);
             }
         }
 
@@ -257,18 +296,25 @@ namespace ChaosArcadeTower.Presentation.StrategyTable
             }
         }
 
-        private void ShowPieceInfo(PieceInstance piece, int slot)
+        private void OnSlotHovered(int slot)
         {
-            string info = $"[b]{piece.Definition.Type}[/b] (Slot {slot + 1})\n";
-            info += $"HP: {piece.CurrentHp}/{piece.MaxHp}\n";
-            info += $"ATK: {piece.Atk}\n";
-            info += $"Cooldown: {piece.Cooldown:F2}s\n";
-            info += $"Value: {piece.Value}\n";
-            if (piece.Enchant.HasValue)
-                info += $"Enchant: {piece.Enchant.Value}\n";
-            if (piece.AppliedPerkIds.Count > 0)
-                info += $"\nPerks applied: {piece.AppliedPerkIds.Count}";
-            _pieceInfo.Text = info;
+            var run = _gsm.CurrentRun;
+            if (run == null) return;
+            var registry = ServiceLocator.Get<PerkEffectRegistry>();
+            var preview = PerkPreviewService.PreviewBoard(run.Board, run.Perks, registry);
+            var piece = preview.GetSlot(slot);
+            if (piece != null)
+                _pieceInfo.Text = PieceInfoFormatter.Format(piece, slot, run.Perks);
+        }
+
+        private void OnReserveHovered(int reserveIndex)
+        {
+            var run = _gsm.CurrentRun;
+            if (run == null) return;
+            var registry = ServiceLocator.Get<PerkEffectRegistry>();
+            var preview = PerkPreviewService.PreviewBoard(run.Board, run.Perks, registry);
+            if (reserveIndex < preview.Reserve.Count)
+                _pieceInfo.Text = PieceInfoFormatter.Format(preview.Reserve[reserveIndex], -1, run.Perks);
         }
 
         private void OnChallenge() => _gsm.StartCombat();
