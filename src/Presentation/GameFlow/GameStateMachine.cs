@@ -87,6 +87,13 @@ namespace ChaosArcadeTower.Presentation.GameFlow
             string savePath = OS.GetUserDataDir() + "/saves";
             _saveService = new JsonSaveService(savePath);
 
+            var prefs = _saveService.LoadPrefs();
+
+            if (prefs.Fullscreen)
+                DisplayServer.WindowSetMode(DisplayServer.WindowMode.Fullscreen);
+            else
+                DisplayServer.WindowSetMode(DisplayServer.WindowMode.Windowed);
+
             ServiceLocator.Register<IEventBus>(_eventBus);
             ServiceLocator.Register(_content);
             ServiceLocator.Register(_combatResolver);

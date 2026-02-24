@@ -18,6 +18,12 @@ namespace ChaosArcadeTower.Presentation.Options
             _gsm = ServiceLocator.Get<GameStateMachine>();
             _prefs = _gsm.GetSaveService().LoadPrefs();
             BuildUI();
+
+            var mode = DisplayServer.WindowGetMode();
+            bool isFullscreen = mode == DisplayServer.WindowMode.Fullscreen
+                            || mode == DisplayServer.WindowMode.ExclusiveFullscreen;
+
+            _fullscreenToggle.ButtonPressed = isFullscreen;
         }
 
         private void BuildUI()
